@@ -1,0 +1,69 @@
+{
+    "specifications" : {
+        "operations" : [
+            {
+                "name" : "Integer Adder",
+                "reservation_station_num" : 2,
+                "EX cycles" : 1,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "FP adder",
+                "reservation_station_num" : 3,
+                "EX cycles" : 3,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "FP multiplier",
+                "reservation_station_num" : 3,
+                "EX cycles" : 20,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "Load/Store Unit",
+                "reservation_station_num" : 3,
+                "EX cycles" : 1,
+                "mem_cycles" :  4,
+                "FUs" : 1
+            }
+        ],
+        "ROB entries" : 128,
+        "CDB Buffer Entries" : 1,
+        "Registers" : [
+            {
+                "name" : "R1",
+                "value" : 10
+            },
+            {
+                "name" : "R2",
+                "value" : 20
+            },
+            {
+                "name" : "F2",
+                "value" : 30.1
+            }
+        ],
+        "Memory" : [
+            {
+                "name" : "4",
+                "value" : "1"
+            },
+            {
+                "name" : "8",
+                "value" : "2"
+            },
+            {
+                "name" : "12",
+                "value" : "3.4"
+            }
+        ],
+        "Instructions" : [
+            { "value" : "Add.d F1, F2, F3"},
+            { "value" : "Ld F4, 8(R1)"},
+            { "value" : "Bne R2, R3, -3"}
+        ]
+    }
+}
