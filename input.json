@@ -58,6 +58,10 @@
             {
                 "name" : "12",
                 "value" : "3.4"
+            },
+            {
+                "name" : "28",
+                "value" : "4.5"
             }
         ],
         "Instructions" : [
