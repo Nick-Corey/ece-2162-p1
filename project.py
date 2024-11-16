@@ -1,11 +1,22 @@
 import json
 import numpy as np
 from tabulate import tabulate
+import reservation_station
 
 # Create Memory and Register arrays
 Memory = [0] * 32
 Int_Registers = [0] * 32
 Float_Registers = [0.0] * 32
+Instruction_Buffer = []
+int_rs_size = 0
+fp_adder_rs_size = 0
+fp_mult_rs_size = 0
+load_store_rs_size = 0
+
+int_rs = []
+fp_adder_rs = []
+fp_mult_rs = []
+load_store_rs = []
 
 # Creating headers for Output tables
 Int_Registers_Names = [''] * 32
@@ -37,11 +48,24 @@ def main():
             if "F" in name:  
                 value = float(reg["value"])
                 Float_Registers[int(name[1:])] = value
-
-    output()
-    exit()
+        # Read in parameters for Operations
+        for operation in specs["specifications"]["operations"]:
+            if 'Integer Adder' in operation['name']:
+                int_rs_size = operation['reservation_station_num']
+            if 'FP Adder' in operation['name']:
+                fp_adder_rs_size = operation['reservation_station_num']
+            if 'FP Multiplier' in operation['name']:
+                fp_mult_rs_size = operation['reservation_station_num']
+            if 'Load/Store Unit' in operation['name']:
+                load_store_rs_size = operation['reservation_station_num']
+        for instruction in specs["specifications"]["Instructions"]:
+            Instruction_Buffer.append(instruction["value"])
+    return
+    
 
 def output():
+
+    print(Instruction_Buffer)
 
     # Converting memory to numpy array to utilize nonzero() function
     mem = np.array(Memory)
@@ -56,6 +80,122 @@ def output():
     print(tabulate([Int_Registers], Int_Registers_Names, tablefmt="simple_grid"))
     print(tabulate([Float_Registers], Float_Registers_Names, tablefmt="simple_grid"))
 
+    print(int_rs)
+    print(fp_adder_rs)
+    print(fp_mult_rs)
+
+def issue():
+
+    instruction_type = ""
+
+    # Get next instruction for Instruction Buffers
+    instruction = Instruction_Buffer.pop(0)
+    instruction = instruction.replace(",", "")
+    instruction_parts = instruction.split(" ")
+    
+    # Find Free Reservation Station
+    operation = instruction_parts[0]
+
+    if "Add" or "Sub" or "Addi" in operation:
+        instruction_type = "int"
+        if len(int_rs) <= int_rs_size:
+            rs = reservation_station.Reservation_Station()
+        else:
+            # Stall?
+            return
+    if "Add.d" or "Sub.d" in operation:
+        instruction_type = "fp"
+        if len(fp_adder_rs) <= fp_adder_rs_size:
+            rs = reservation_station.Reservation_Station()
+        else:
+            # Stall?
+            return
+    if "Mult.d" in operation:
+        instruction_type = "fp"
+        if len(fp_mult_rs) <= fp_mult_rs_size:
+            rs = reservation_station.Reservation_Station()
+        else:
+            # Stall?
+            return
+    # TODO: Branch instructions & Load/Store Instructions
+
+    # Read Operands from Register File
+    operand1 = instruction_parts[2]
+    operand2 = instruction_parts[3]
+
+    if "Add.d" or "Add" or "Mult.d" or "Sub.d" or "Sub" in operation:
+        if "int" in instruction_type:
+            value1 = Int_Registers[int(operand1[1:])] 
+            value2 = Int_Registers[int(operand2[1:])]
+
+        if "fp" in instruction_type:
+            value1 = Float_Registers[int(operand1[1:])] 
+            value2 = Float_Registers[int(operand2[1:])] 
+    
+    if "Addi" in operation:
+        value1 = Int_Registers[int(operand1[1:])] 
+        value2 = operand2
+
+    # Record Source of other operands
+
+
+
+    # Update source mapping (RAT)
+
+
+    # Place values in RS
+    rs.operation = operation
+
+    if type(value1) == type("value"):
+        rs.qj = value1
+    else:
+        rs.vj = value1
+
+    if type(value2) == type("value"):
+        rs.qk = value2
+    else:
+        rs.vk = value2
+
+    if "Add.d" or "Sub.d" in operation:
+        fp_adder_rs.append(rs)
+    elif "Add" or "Sub" or "Addi" in operation:
+        int_rs.append(rs)
+    elif "Mult.d" in operation:
+        fp_mult_rs.append(rs)
+
+    return
+
+def execute():
+
+    # Execute in ALU when all operands available
+
+    # Monitor Results from ALUs
+
+    # Capture matching operands
+
+    # compete for ALUs
+
+    return
+
+def memory():
+    return
+
+def write():
+
+    # Broadcast on CDB
+
+    # Writeback to RF
+
+    # Updating Mapping
+
+    # Free Reservation Station
+
+    return
+
+def commit():
+    return
 
 if __name__ == "__main__":
     main()
+    issue()
+    output()

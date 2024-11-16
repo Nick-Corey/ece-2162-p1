@@ -9,14 +9,14 @@
                 "FUs" : 1
             },
             {
-                "name" : "FP adder",
+                "name" : "FP Adder",
                 "reservation_station_num" : 3,
                 "EX cycles" : 3,
                 "mem_cycles" :  0,
                 "FUs" : 1
             },
             {
-                "name" : "FP multiplier",
+                "name" : "FP Multiplier",
                 "reservation_station_num" : 3,
                 "EX cycles" : 20,
                 "mem_cycles" :  0,
