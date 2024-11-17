@@ -65,9 +65,13 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Add.d F1, F2, F3"},
-            { "value" : "Ld F4, 8(R1)"},
-            { "value" : "Bne R2, R3, -3"}
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Add R1, R1, R2"}
         ]
     }
 }

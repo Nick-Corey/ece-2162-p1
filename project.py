@@ -2,6 +2,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import reservation_station
+from alu import Int_adder
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -30,6 +31,7 @@ while i < 32:
 
 # TODO: rename from main() to something more specific
 def main():
+    global Int_fu, int_rs_size
     # Open test case file
     with open("input.json") as test_file:
         specs = json.load(test_file)
@@ -52,6 +54,7 @@ def main():
         for operation in specs["specifications"]["operations"]:
             if 'Integer Adder' in operation['name']:
                 int_rs_size = operation['reservation_station_num']
+                Int_fu = Int_adder(operation['EX cycles'], operation['FUs'])
             if 'FP Adder' in operation['name']:
                 fp_adder_rs_size = operation['reservation_station_num']
             if 'FP Multiplier' in operation['name']:
@@ -85,7 +88,7 @@ def output():
     print(fp_mult_rs)
 
 def issue():
-
+    global int_rs
     instruction_type = ""
 
     # Get next instruction for Instruction Buffers
@@ -96,23 +99,24 @@ def issue():
     # Find Free Reservation Station
     operation = instruction_parts[0]
 
+    # This is broken for some reason???
+    # if "Add.d" or "Sub.d" in operation:
+    #     instruction_type = "fp"
+    #     if len(fp_adder_rs) <= fp_adder_rs_size:
+    #         rs = reservation_station.Reservation_Station()
+    #     else:
+    #         # Stall?
+    #         return
     if "Add" or "Sub" or "Addi" in operation:
         instruction_type = "int"
-        if len(int_rs) <= int_rs_size:
+        if len(int_rs) < int_rs_size:
             rs = reservation_station.Reservation_Station()
         else:
             # Stall?
             return
-    if "Add.d" or "Sub.d" in operation:
+    elif "Mult.d" in operation:
         instruction_type = "fp"
-        if len(fp_adder_rs) <= fp_adder_rs_size:
-            rs = reservation_station.Reservation_Station()
-        else:
-            # Stall?
-            return
-    if "Mult.d" in operation:
-        instruction_type = "fp"
-        if len(fp_mult_rs) <= fp_mult_rs_size:
+        if len(fp_mult_rs) < fp_mult_rs_size:
             rs = reservation_station.Reservation_Station()
         else:
             # Stall?
@@ -146,6 +150,7 @@ def issue():
     # Place values in RS
     rs.operation = operation
 
+    # Check if the value is a string or a number
     if type(value1) == type("value"):
         rs.qj = value1
     else:
@@ -156,24 +161,36 @@ def issue():
     else:
         rs.vk = value2
 
-    if "Add.d" or "Sub.d" in operation:
+    # For some reason this is super buggy? Had to remove Add.d
+    if "Sub.d" in operation:
         fp_adder_rs.append(rs)
-    elif "Add" or "Sub" or "Addi" in operation:
+    elif "Add" in operation:
         int_rs.append(rs)
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
+    else:
+        print('why are you here?')
 
     return
 
 def execute():
-
+    global Int_fu, int_rs
     # Execute in ALU when all operands available
+    for rs in int_rs:
+        if rs.busy == False and rs.vj != None and rs.vk != None:
+            if Int_fu.check_if_space():
+                Int_fu.compute(rs)
+                rs.busy = True
+
 
     # Monitor Results from ALUs
 
     # Capture matching operands
 
     # compete for ALUs
+
+
+    int_value = Int_fu.cycle()
 
     return
 
@@ -197,5 +214,7 @@ def commit():
 
 if __name__ == "__main__":
     main()
-    issue()
+    for i in range(5):
+        issue()
+        execute()
     output()
