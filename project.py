@@ -99,15 +99,14 @@ def issue():
     # Find Free Reservation Station
     operation = instruction_parts[0]
 
-    # This is broken for some reason???
-    # if "Add.d" or "Sub.d" in operation:
-    #     instruction_type = "fp"
-    #     if len(fp_adder_rs) <= fp_adder_rs_size:
-    #         rs = reservation_station.Reservation_Station()
-    #     else:
-    #         # Stall?
-    #         return
-    if "Add" or "Sub" or "Addi" in operation:
+    if "Add.d" in operation or "Sub.d" in operation:
+        instruction_type = "fp"
+        if len(fp_adder_rs) <= fp_adder_rs_size:
+            rs = reservation_station.Reservation_Station()
+        else:
+            # Stall?
+            return
+    if "Add" in operation or "Sub" in operation or "Addi" in operation:
         instruction_type = "int"
         if len(int_rs) < int_rs_size:
             rs = reservation_station.Reservation_Station()
@@ -127,7 +126,7 @@ def issue():
     operand1 = instruction_parts[2]
     operand2 = instruction_parts[3]
 
-    if "Add.d" or "Add" or "Mult.d" or "Sub.d" or "Sub" in operation:
+    if "Add.d" in operation or "Add" in operation or "Mult.d" in operation or "Sub.d" in operation or "Sub" in operation:
         if "int" in instruction_type:
             value1 = Int_Registers[int(operand1[1:])] 
             value2 = Int_Registers[int(operand2[1:])]
@@ -162,9 +161,9 @@ def issue():
         rs.vk = value2
 
     # For some reason this is super buggy? Had to remove Add.d
-    if "Sub.d" in operation:
+    if "Add.d" in operation or "Sub.d" in operation:
         fp_adder_rs.append(rs)
-    elif "Add" in operation:
+    elif "Add" in operation or "Sub" in operation or "Addi" in operation:
         int_rs.append(rs)
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
@@ -191,7 +190,7 @@ def execute():
 
 
     int_value = Int_fu.cycle()
-
+    print(int_value)
     return
 
 def memory():
