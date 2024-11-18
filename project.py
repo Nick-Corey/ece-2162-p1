@@ -3,6 +3,7 @@ import numpy as np
 from tabulate import tabulate
 import reservation_station
 from alu import Int_adder
+from cdb import CommonDataBus
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -18,6 +19,11 @@ int_rs = []
 fp_adder_rs = []
 fp_mult_rs = []
 load_store_rs = []
+
+# TODO: allow for dynamic size CDB
+cdb = CommonDataBus(1)
+
+rat = []
 
 # Creating headers for Output tables
 Int_Registers_Names = [''] * 32
@@ -83,11 +89,16 @@ def output():
     print(tabulate([Int_Registers], Int_Registers_Names, tablefmt="simple_grid"))
     print(tabulate([Float_Registers], Float_Registers_Names, tablefmt="simple_grid"))
 
-    print(int_rs)
+    for rs in int_rs:
+        print(rs)
     print(fp_adder_rs)
     print(fp_mult_rs)
+    print(rat)
 
-def issue():
+# RS are currently dyanically pushed and popped into a list
+# in order to create a value which can allow an RS to be referenced
+# I am using the cycle number... This may need to be change later 
+def issue(num):
     global int_rs
     instruction_type = ""
 
@@ -102,25 +113,28 @@ def issue():
     if "Add.d" in operation or "Sub.d" in operation:
         instruction_type = "fp"
         if len(fp_adder_rs) <= fp_adder_rs_size:
-            rs = reservation_station.Reservation_Station()
+            rs = reservation_station.Reservation_Station("AD", num)
         else:
             # Stall?
             return
     if "Add" in operation or "Sub" in operation or "Addi" in operation:
         instruction_type = "int"
         if len(int_rs) < int_rs_size:
-            rs = reservation_station.Reservation_Station()
+            rs = reservation_station.Reservation_Station("AI", num)
         else:
             # Stall?
             return
     elif "Mult.d" in operation:
         instruction_type = "fp"
         if len(fp_mult_rs) < fp_mult_rs_size:
-            rs = reservation_station.Reservation_Station()
+            rs = reservation_station.Reservation_Station("ML", num)
         else:
             # Stall?
             return
     # TODO: Branch instructions & Load/Store Instructions
+
+    # Get Destination Register
+    destination = instruction_parts[1]
 
     # Read Operands from Register File
     operand1 = instruction_parts[2]
@@ -142,9 +156,10 @@ def issue():
     # Record Source of other operands
 
 
-
+    # TODO: Might need to add logic for duplicate RAT entries (WAW)
     # Update source mapping (RAT)
-
+    # (destination, rs_num)
+    rat.append((destination, rs.id))
 
     # Place values in RS
     rs.operation = operation
@@ -188,17 +203,39 @@ def execute():
 
     # compete for ALUs
 
-
+    # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
-    print(int_value)
-    return
+
+    # TODO: add support for CDB of multiple sizes
+    return [int_value]
 
 def memory():
     return
 
-def write():
-
+def write(values):
+    global Int_Registers, int_rs, rat
     # Broadcast on CDB
+    for value in values:
+        cdb.broadcast(value[0], value[1])
+
+    # Please forgive me for this code
+    for k, value in enumerate(cdb.read()):
+        #print(value)
+        if 'AI' in value[1]:
+            #Free Reservation Station
+            for i, rs in enumerate(int_rs):
+                if rs.id == value[1]:
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+                        if entry[1] == rs.id:
+                            reg = entry[0]
+                            #print(reg)
+                            rat.pop(j)
+                            Int_Registers[int(reg[1:])] = value[0]
+                    int_rs.pop(i)
+                    cdb.pop(k)
+
+                    
 
     # Writeback to RF
 
@@ -214,6 +251,7 @@ def commit():
 if __name__ == "__main__":
     main()
     for i in range(5):
-        issue()
-        execute()
+        issue(i)
+        values = execute()
+        write(values)
     output()
