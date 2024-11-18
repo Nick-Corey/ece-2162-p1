@@ -2,7 +2,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import reservation_station
-from alu import Int_adder
+from alu import Int_adder, FP_Adder
 from cdb import CommonDataBus
 
 # Create Memory and Register arrays
@@ -37,7 +37,7 @@ while i < 32:
 
 # TODO: rename from main() to something more specific
 def main():
-    global Int_fu, int_rs_size
+    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size
     # Open test case file
     with open("input.json") as test_file:
         specs = json.load(test_file)
@@ -63,6 +63,7 @@ def main():
                 Int_fu = Int_adder(operation['EX cycles'], operation['FUs'])
             if 'FP Adder' in operation['name']:
                 fp_adder_rs_size = operation['reservation_station_num']
+                FP_adder_fu = FP_Adder(operation['EX cycles'], operation['FUs'])
             if 'FP Multiplier' in operation['name']:
                 fp_mult_rs_size = operation['reservation_station_num']
             if 'Load/Store Unit' in operation['name']:
@@ -99,7 +100,7 @@ def output():
 # in order to create a value which can allow an RS to be referenced
 # I am using the cycle number... This may need to be change later 
 def issue(num):
-    global int_rs
+    global int_rs, fp_adder_rs
     instruction_type = ""
 
     # Get next instruction for Instruction Buffers
@@ -117,7 +118,7 @@ def issue(num):
         else:
             # Stall?
             return
-    if "Add" in operation or "Sub" in operation or "Addi" in operation:
+    elif "Add" in operation or "Sub" in operation or "Addi" in operation:
         instruction_type = "int"
         if len(int_rs) < int_rs_size:
             rs = reservation_station.Reservation_Station("AI", num)
@@ -188,7 +189,7 @@ def issue(num):
     return
 
 def execute():
-    global Int_fu, int_rs
+    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu
     # Execute in ALU when all operands available
     for rs in int_rs:
         if rs.busy == False and rs.vj != None and rs.vk != None:
@@ -196,6 +197,11 @@ def execute():
                 Int_fu.compute(rs)
                 rs.busy = True
 
+    for rs in fp_adder_rs:
+        if rs.busy == False and rs.vj != None and rs.vk != None:
+            if FP_adder_fu.check_if_space():
+                FP_adder_fu.compute(rs)
+                rs.busy = True
 
     # Monitor Results from ALUs
 
@@ -205,22 +211,23 @@ def execute():
 
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
-
+    fp_adder_value = FP_adder_fu.cycle()
+    print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
-    return [int_value]
+    return [int_value, fp_adder_value]
 
 def memory():
     return
 
 def write(values):
-    global Int_Registers, int_rs, rat
+    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs
     # Broadcast on CDB
     for value in values:
-        cdb.broadcast(value[0], value[1])
+        if value[0] != None and value[1] != None:
+            cdb.broadcast(value[0], value[1])
 
     # Please forgive me for this code
     for k, value in enumerate(cdb.read()):
-        #print(value)
         if 'AI' in value[1]:
             #Free Reservation Station
             for i, rs in enumerate(int_rs):
@@ -233,6 +240,19 @@ def write(values):
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = value[0]
                     int_rs.pop(i)
+                    cdb.pop(k)
+        elif 'AD' in value[1]:
+            #Free Reservation Station
+            for i, rs in enumerate(fp_adder_rs):
+                if rs.id == value[1]:
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+                        if entry[1] == rs.id:
+                            reg = entry[0]
+                            #print(reg)
+                            rat.pop(j)
+                            Float_Registers[int(reg[1:])] = value[0]
+                    fp_adder_rs.pop(i)
                     cdb.pop(k)
 
                     
