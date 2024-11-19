@@ -39,7 +39,7 @@
             },
             {
                 "name" : "R2",
-                "value" : 20
+                "value" : 0
             },
             {
                 "name" : "R3",
@@ -93,15 +93,13 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Sub.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"},
-            { "value" : "Add.d F1, F1, F2"}
+            { "value" : "Addi R1, R2, 3"},
+            { "value" : "Addi R4, R5, 6"},
+            { "value" : "Addi R2, R3, 7"},
+            { "value" : "Addi R3, R2, 9"},
+            { "value" : "Addi R1, R6, 3"},
+            { "value" : "Addi R1, R2, 3"},
+            { "value" : "Addi R1, R2, 3"}
         ]
     }
 }

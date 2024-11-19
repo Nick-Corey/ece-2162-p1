@@ -140,8 +140,11 @@ def issue(num):
     # Read Operands from Register File
     operand1 = instruction_parts[2]
     operand2 = instruction_parts[3]
-
-    if "Add.d" in operation or "Add" in operation or "Mult.d" in operation or "Sub.d" in operation or "Sub" in operation:
+    
+    if "Addi" in operation:
+        value1 = Int_Registers[int(operand1[1:])] 
+        value2 = int(operand2)
+    elif "Add.d" in operation or "Add" in operation or "Mult.d" in operation or "Sub.d" in operation or "Sub" in operation:
         if "int" in instruction_type:
             value1 = Int_Registers[int(operand1[1:])] 
             value2 = Int_Registers[int(operand2[1:])]
@@ -149,10 +152,7 @@ def issue(num):
         if "fp" in instruction_type:
             value1 = Float_Registers[int(operand1[1:])] 
             value2 = Float_Registers[int(operand2[1:])] 
-    
-    if "Addi" in operation:
-        value1 = Int_Registers[int(operand1[1:])] 
-        value2 = operand2
+
 
     # Record Source of other operands
 
@@ -176,7 +176,6 @@ def issue(num):
     else:
         rs.vk = value2
 
-    # For some reason this is super buggy? Had to remove Add.d
     if "Add.d" in operation or "Sub.d" in operation:
         fp_adder_rs.append(rs)
     elif "Add" in operation or "Sub" in operation or "Addi" in operation:
@@ -211,8 +210,9 @@ def execute():
 
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
+    print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
-    print(fp_adder_value)
+    #print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
     return [int_value, fp_adder_value]
 
@@ -270,8 +270,10 @@ def commit():
 
 if __name__ == "__main__":
     main()
+    # TODO: have this be dynamic
     for i in range(5):
         issue(i)
         values = execute()
+        # writeback before execute???
         write(values)
     output()

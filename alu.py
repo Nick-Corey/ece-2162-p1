@@ -11,11 +11,13 @@ class Int_adder():
         vj = rs.vj
         vk = rs.vk
         id = rs.id
+        # What is the zero???
         self.buffer.append((operation, vj, vk, 0, id))
         print(self.buffer)
         return
 
     def check_if_space(self):
+        # This is maybe wrong? Probably not though
         if len(self.buffer) < self.fus:
             return True
         else:
@@ -60,6 +62,7 @@ class FP_Adder():
         return
 
     def check_if_space(self):
+        # This is wrong, needs to be pipelined
         if len(self.buffer) < self.fus:
             return True
         else:
