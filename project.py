@@ -4,6 +4,7 @@ from tabulate import tabulate
 import reservation_station
 from alu import Int_adder, FP_Adder
 from cdb import CommonDataBus
+from timetable import timetable
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -22,8 +23,11 @@ load_store_rs = []
 
 # TODO: allow for dynamic size CDB
 cdb = CommonDataBus(1)
-
 rat = []
+
+# Create time table
+timeTable = timetable(0)
+fist_commit = True
 
 # Creating headers for Output tables
 Int_Registers_Names = [''] * 32
@@ -39,7 +43,7 @@ while i < 32:
 def main():
     global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size
     # Open test case file
-    with open("input.json") as test_file:
+    with open("TestCases/input.json") as test_file:
         specs = json.load(test_file)
         # Read in parameters for memory initlization and initialize
         for mem in specs["specifications"]["Memory"]:
@@ -70,13 +74,17 @@ def main():
                 load_store_rs_size = operation['reservation_station_num']
         for instruction in specs["specifications"]["Instructions"]:
             Instruction_Buffer.append(instruction["value"])
+
+        #Initalize Time Table
+        timeTable.resize(len(Instruction_Buffer))
+
     return
     
 
 def output():
 
     print(Instruction_Buffer)
-
+    
     # Converting memory to numpy array to utilize nonzero() function
     mem = np.array(Memory)
     non_zero = np.nonzero(mem)
@@ -103,11 +111,15 @@ def issue(num):
     global int_rs, fp_adder_rs
     instruction_type = ""
 
+    # If no instructions left - nothing to issue - exit
+    if not Instruction_Buffer:
+        return
+
     # Get next instruction for Instruction Buffers
     instruction = Instruction_Buffer.pop(0)
     instruction = instruction.replace(",", "")
     instruction_parts = instruction.split(" ")
-    
+
     # Find Free Reservation Station
     operation = instruction_parts[0]
 
@@ -153,9 +165,7 @@ def issue(num):
             value1 = Float_Registers[int(operand1[1:])] 
             value2 = Float_Registers[int(operand2[1:])] 
 
-
     # Record Source of other operands
-
 
     # TODO: Might need to add logic for duplicate RAT entries (WAW)
     # Update source mapping (RAT)
@@ -185,22 +195,50 @@ def issue(num):
     else:
         print('why are you here?')
 
+
+    # Add issued instruction to the time table
+    timeTable.add_instruction(rs.id, instruction, i)
+
     return
 
 def execute():
     global Int_fu, int_rs, fp_adder_rs, FP_adder_fu
-    # Execute in ALU when all operands available
+    
+    # Execution Stage
+    
+    # Integer Reservation Stations
     for rs in int_rs:
-        if rs.busy == False and rs.vj != None and rs.vk != None:
-            if Int_fu.check_if_space():
-                Int_fu.compute(rs)
-                rs.busy = True
+        # Cannot execute and issue on same cycle - comapare with time table
+        # Cannot execute without all operands ready
+        # Cannot execute if functional unit is busy
+        instruction_row = timeTable.getrowindexfromID(rs.id)
+        if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
+        if not (rs.busy == False and rs.vj != None and rs.vk != None)      : continue
+        if not (Int_fu.check_if_space())                                   : continue
 
+        # All conditions met - begin execution
+        Int_fu.compute(rs)
+        rs.busy = True
+
+        # Record execution in timetable
+        timeTable.add_execution(rs.id, i, Int_fu.exec_cycles)
+                
+    # FP Add Reservation Stations
     for rs in fp_adder_rs:
-        if rs.busy == False and rs.vj != None and rs.vk != None:
-            if FP_adder_fu.check_if_space():
-                FP_adder_fu.compute(rs)
-                rs.busy = True
+        # Cannot execute and issue on same cycle - comapare with time table
+        # Cannot execute without all operands ready
+        # Cannot execute if functional unit is busy #TODO - pipelined!!!!!
+        instruction_row = timeTable.getrowindexfromID(rs.id)
+        if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
+        if not (rs.busy == False and rs.vj != None and rs.vk != None)      : continue
+        if not (FP_adder_fu.check_if_space())                              : continue
+
+        # Begin Execution
+        FP_adder_fu.compute(rs)
+        rs.busy = True
+
+        # Record execution in timetable
+        timeTable.add_execution(rs.id, i, FP_adder_fu.exec_cycles)
 
     # Monitor Results from ALUs
 
@@ -217,51 +255,98 @@ def execute():
     return [int_value, fp_adder_value]
 
 def memory():
+    # Memory Stage 
+
+    # If instruction is not LD - exit
+
+    # for rs in memory_rs:
+    #     # Do stuff
+    #     # Must wait for execution to finish before accessing memory for LD
+    #     pass 
+
+    timeTable.add_memory()
+
     return
 
 def write(values):
+    # Values[n] corresponds to entries on the buffer
+    # Values[n][0] is the entries' data
+    # Values[n][1] is the entries' instruction id
+
     global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs
+
+    writeback_instruction_id = None
+
     # Broadcast on CDB
     for value in values:
-        if value[0] != None and value[1] != None:
-            cdb.broadcast(value[0], value[1])
 
-    # Please forgive me for this code
+        result = value[0]
+        cdb_instruction_id = value[1]
+
+        if result != None and cdb_instruction_id != None:
+            cdb.broadcast(result, cdb_instruction_id)
+
+    # Iterate through the cdb buffer
     for k, value in enumerate(cdb.read()):
-        if 'AI' in value[1]:
+
+        result = value[0]
+        cdb_instruction_id = value[1]
+
+        # If Integer Add -------------------------------------
+        if 'AI' in cdb_instruction_id:
+
             #Free Reservation Station
-            for i, rs in enumerate(int_rs):
-                if rs.id == value[1]:
+            for x, rs in enumerate(int_rs):
+                if rs.id == cdb_instruction_id:
+                    writeback_instruction_id = rs.id 
+
                     #Update register file and RAT
                     for j, entry in enumerate(rat):
-                        if entry[1] == rs.id:
-                            reg = entry[0]
+
+                        register_name = entry[0]
+                        instruction_id = entry[1]
+
+                        if instruction_id == rs.id:
+                            reg = register_name
                             #print(reg)
                             rat.pop(j)
-                            Int_Registers[int(reg[1:])] = value[0]
-                    int_rs.pop(i)
-                    cdb.pop(k)
-        elif 'AD' in value[1]:
-            #Free Reservation Station
-            for i, rs in enumerate(fp_adder_rs):
-                if rs.id == value[1]:
-                    #Update register file and RAT
-                    for j, entry in enumerate(rat):
-                        if entry[1] == rs.id:
-                            reg = entry[0]
-                            #print(reg)
-                            rat.pop(j)
-                            Float_Registers[int(reg[1:])] = value[0]
-                    fp_adder_rs.pop(i)
+                            Int_Registers[int(reg[1:])] = result
+                    int_rs.pop(x)
                     cdb.pop(k)
 
-                    
+        # If FP Add      ----------------------------------------
+        elif 'AD' in cdb_instruction_id:
+
+            #Free Reservation Station
+            for x, rs in enumerate(fp_adder_rs):
+                if rs.id == cdb_instruction_id:
+                    writeback_instruction_id = rs.id 
+
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+
+                        register_name = entry[0]
+                        instruction_id = entry[1]
+
+                        if instruction_id == rs.id:
+                            reg = register_name
+                            #print(reg)
+                            rat.pop(j)
+                            Float_Registers[int(reg[1:])] = result
+                    fp_adder_rs.pop(x)
+                    cdb.pop(k)
+
+        pass            
 
     # Writeback to RF
 
     # Updating Mapping
 
     # Free Reservation Station
+
+    # Update Timetable - only if good date on CDB - ie not all None
+    if values[0][0] is not None and values[0][1] is not None:
+        timeTable.add_writeback(writeback_instruction_id, i+1)
 
     return
 
@@ -271,9 +356,9 @@ def commit():
 if __name__ == "__main__":
     main()
     # TODO: have this be dynamic
-    for i in range(5):
+    for i in range(10):
         issue(i)
         values = execute()
-        # writeback before execute???
         write(values)
     output()
+    print(timeTable)
