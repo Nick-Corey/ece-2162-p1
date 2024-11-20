@@ -77,7 +77,7 @@ class timetable():
 
     def add_commit(self, id:str, cycle:int):
         # Writes the commit cycle for an instruction into the table
-        # This method is only called when a succesfull commit occurs (or should be anyway)
+        # This method is only called when a succesful commit occurs (or should be anyway)
 
         row_index = self.getrowindexfromID(id)
 

@@ -116,13 +116,12 @@ def output():
 def issue():
     global int_rs, fp_adder_rs
     instruction_type = ""
-
     # If no instructions left - nothing to issue - exit
     if not Instruction_Buffer:
         return
 
     # Get next instruction for Instruction Buffers
-    instruction = Instruction_Buffer.pop(0)
+    instruction = Instruction_Buffer[0]
     instruction = instruction.replace(",", "")
     instruction_parts = instruction.split(" ")
 
@@ -206,6 +205,7 @@ def issue():
 
     # Add issued instruction to the time table
     timeTable.add_instruction(rs.id, instruction, i)
+    Instruction_Buffer.pop(0)
 
     return
 
@@ -257,6 +257,7 @@ def execute():
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
     print(int_value)
+    #print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
     #print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
@@ -292,6 +293,7 @@ def write(values):
         cdb_instruction_id = value[1]
 
         if result != None and cdb_instruction_id != None:
+            print('test')
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
 
@@ -391,7 +393,6 @@ if __name__ == "__main__":
         # Run as long as there are instructions to issue or instruction waiting to commit
         stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
         i = i + 1
-        
-
+        print(rob)
     output()
     print(timeTable)
