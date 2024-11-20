@@ -113,7 +113,7 @@ def output():
 # RS are currently dyanically pushed and popped into a list
 # in order to create a value which can allow an RS to be referenced
 # I am using the cycle number... This may need to be change later 
-def issue(num):
+def issue():
     global int_rs, fp_adder_rs
     instruction_type = ""
 
@@ -132,21 +132,21 @@ def issue(num):
     if "Add.d" in operation or "Sub.d" in operation:
         instruction_type = "fp"
         if len(fp_adder_rs) <= fp_adder_rs_size:
-            rs = reservation_station.Reservation_Station("AD", num)
+            rs = reservation_station.Reservation_Station("AD", i)
         else:
             # Stall?
             return
     elif "Add" in operation or "Sub" in operation or "Addi" in operation:
         instruction_type = "int"
         if len(int_rs) < int_rs_size:
-            rs = reservation_station.Reservation_Station("AI", num)
+            rs = reservation_station.Reservation_Station("AI", i)
         else:
             # Stall?
             return
     elif "Mult.d" in operation:
         instruction_type = "fp"
         if len(fp_mult_rs) < fp_mult_rs_size:
-            rs = reservation_station.Reservation_Station("ML", num)
+            rs = reservation_station.Reservation_Station("ML", i)
         else:
             # Stall?
             return
@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
-        issue(i)
+        issue()
         values = execute()
         memory()
         write(values)
