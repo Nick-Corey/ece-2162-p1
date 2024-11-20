@@ -5,6 +5,7 @@ import reservation_station
 from alu import Int_adder, FP_Adder
 from cdb import CommonDataBus
 from timetable import timetable
+from reorderbuffer import ReorderBuffer
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -26,8 +27,10 @@ cdb = CommonDataBus(1)
 rat = []
 
 # Create time table
-timeTable = timetable(0)
-fist_commit = True
+timeTable = timetable()
+
+# Create ROB
+rob = ReorderBuffer()
 
 # Creating headers for Output tables
 Int_Registers_Names = [''] * 32
@@ -77,6 +80,9 @@ def main():
 
         #Initalize Time Table
         timeTable.resize(len(Instruction_Buffer))
+
+        #Initalize ROB to correct size
+        rob.resize(specs["specifications"]["ROB entries"])
 
     return
     
@@ -195,6 +201,8 @@ def issue(num):
     else:
         print('why are you here?')
 
+    # Insert Instruction into the ROB
+    rob.insert(rs.id)
 
     # Add issued instruction to the time table
     timeTable.add_instruction(rs.id, instruction, i)
@@ -264,7 +272,7 @@ def memory():
     #     # Must wait for execution to finish before accessing memory for LD
     #     pass 
 
-    timeTable.add_memory()
+    #timeTable.add_memory()
 
     return
 
@@ -285,6 +293,7 @@ def write(values):
 
         if result != None and cdb_instruction_id != None:
             cdb.broadcast(result, cdb_instruction_id)
+            rob.markComplete(cdb_instruction_id)
 
     # Iterate through the cdb buffer
     for k, value in enumerate(cdb.read()):
@@ -344,14 +353,24 @@ def write(values):
 
     # Free Reservation Station
 
-    # Update Timetable - only if good date on CDB - ie not all None
+    # Update Timetable - only if good data on CDB - ie not all None
     if values[0][0] is not None and values[0][1] is not None:
         timeTable.add_writeback(writeback_instruction_id, i+1)
 
     return
 
 def commit():
-    return
+
+    # If the ROB is empty then nothing can be done
+    if rob.isEmpty(): return
+
+    # Cannot commit and writeback on same cycle
+
+    # Attempt to commit the head the entry
+    instruction_id, commit_success = rob.commit()
+    # If committed then update table -- If not, nothing occurs
+    if commit_success and instruction_id is not None:
+        timeTable.add_commit(instruction_id, i)
 
 if __name__ == "__main__":
     main()
@@ -359,6 +378,11 @@ if __name__ == "__main__":
     for i in range(10):
         issue(i)
         values = execute()
+        memory()
         write(values)
+        commit()
+
+        #print(rob)
+
     output()
     print(timeTable)

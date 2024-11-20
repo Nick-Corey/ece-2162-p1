@@ -18,7 +18,7 @@ class timetable():
     # Dynamic Counter for num of instructions
     count           = 0
 
-    def __init__(self, num_entries:int):
+    def __init__(self):
         # Empty Constructor - only exists so we can init structure globally before knowing size values
         pass
 
@@ -74,6 +74,19 @@ class timetable():
 
         row_index = self.getrowindexfromID(id)
         self.table[row_index][self.writeback_loc] = cycle
+
+    def add_commit(self, id:str, cycle:int):
+        # Writes the commit cycle for an instruction into the table
+        # This method is only called when a succesfull commit occurs (or should be anyway)
+
+        row_index = self.getrowindexfromID(id)
+
+        # Cannot commit on the same cycle as we writeback - problem with sequential software - offset by 1 to show this
+        if self.table[row_index][self.writeback_loc] == cycle:
+            self.table[row_index][self.commit_loc] = cycle + 1
+        else:
+            self.table[row_index][self.commit_loc] = cycle 
+
 
     def __str__(self):
         # Pretty table format
