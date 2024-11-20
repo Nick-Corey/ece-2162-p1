@@ -370,7 +370,8 @@ def commit():
     instruction_id, commit_success = rob.commit()
     # If committed then update table -- If not, nothing occurs
     if commit_success and instruction_id is not None:
-        timeTable.add_commit(instruction_id, i)
+        # Must offset cycle since they technically execute in sequential order here but not in actuality
+        timeTable.add_commit(instruction_id, i+2)
 
 if __name__ == "__main__":
     main()
@@ -381,8 +382,6 @@ if __name__ == "__main__":
         memory()
         write(values)
         commit()
-
-        #print(rob)
 
     output()
     print(timeTable)
