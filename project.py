@@ -43,7 +43,7 @@ while i < 32:
 
 
 # TODO: rename from main() to something more specific
-def main():
+def initalize():
     global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size
     # Open test case file
     with open("TestCases/input.json") as test_file:
@@ -374,14 +374,24 @@ def commit():
         timeTable.add_commit(instruction_id, i+2)
 
 if __name__ == "__main__":
-    main()
-    # TODO: have this be dynamic
-    for i in range(10):
+    
+    # Begin
+    initalize()
+    stuff_to_be_done = True
+    i = 0
+
+    # Main loop, every iteration is a cycle
+    while stuff_to_be_done:
         issue(i)
         values = execute()
         memory()
         write(values)
         commit()
+
+        # Run as long as there are instructions to issue or instruction waiting to commit
+        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
+        i = i + 1
+        
 
     output()
     print(timeTable)

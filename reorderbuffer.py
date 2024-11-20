@@ -79,6 +79,9 @@ class ReorderBuffer():
     def isEmpty(self):
         return self.count == 0
 
+    def isNotEmpty(self):
+        return not self.isEmpty()
+
     def __str__(self):
         # Pretty string function
         headers = ["ID", "Register", "Value", "Done"]
