@@ -2,7 +2,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import reservation_station
-from alu import Int_adder, FP_Adder, FP_Mult
+from alu import Int_adder, FP_Adder, FP_Mult, LD_SD
 from cdb import CommonDataBus
 
 # Create Memory and Register arrays
@@ -37,7 +37,7 @@ while i < 32:
 
 # TODO: rename from main() to something more specific
 def main():
-    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu
+    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size
     # Open test case file
     with open("input.json") as test_file:
         specs = json.load(test_file)
@@ -69,6 +69,7 @@ def main():
                 FP_mult_fu = FP_Mult(operation['EX cycles'], operation['FUs'])
             if 'Load/Store Unit' in operation['name']:
                 load_store_rs_size = operation['reservation_station_num']
+                LD_SD_fu = LD_SD(operation['EX cycles'], operation['mem_cycles'], operation['FUs'])
         for instruction in specs["specifications"]["Instructions"]:
             Instruction_Buffer.append(instruction["value"])
     return
@@ -95,6 +96,7 @@ def output():
         print(rs)
     print(fp_adder_rs)
     print(fp_mult_rs)
+    print(load_store_rs)
     print(rat)
 
 # RS are currently dyanically pushed and popped into a list
@@ -133,6 +135,13 @@ def issue(num):
         else:
             # Stall?
             return
+    elif "Ld" in operation:
+        instruction_type = "fp"
+        if len(load_store_rs) < load_store_rs_size:
+            rs = reservation_station.Reservation_Station("LD", num)
+        else:
+            # Stall?
+            return
     # TODO: Branch instructions & Load/Store Instructions
 
     # Get Destination Register
@@ -140,7 +149,8 @@ def issue(num):
 
     # Read Operands from Register File
     operand1 = instruction_parts[2]
-    operand2 = instruction_parts[3]
+    if 'Ld' not in operation:
+        operand2 = instruction_parts[3]
     
     if "Addi" in operation:
         value1 = Int_Registers[int(operand1[1:])] 
@@ -153,6 +163,13 @@ def issue(num):
         if "fp" in instruction_type:
             value1 = Float_Registers[int(operand1[1:])] 
             value2 = Float_Registers[int(operand2[1:])] 
+    elif "Ld" in operation:
+        # Ld F4, 8(R1)
+        parts = operand1.replace(')', '').split('(') 
+        reg = parts[1]
+        offset = int(parts[0])
+        value1 = Int_Registers[int(reg[1:])] 
+
 
 
     # Record Source of other operands
@@ -166,16 +183,21 @@ def issue(num):
     # Place values in RS
     rs.operation = operation
 
-    # Check if the value is a string or a number
-    if type(value1) == type("value"):
-        rs.qj = value1
-    else:
-        rs.vj = value1
+    if 'Ld' not in operation:
+        # Check if the value is a string or a number
+        if type(value1) == type("value"):
+            rs.qj = value1
+        else:
+            rs.vj = value1
 
-    if type(value2) == type("value"):
-        rs.qk = value2
+        if type(value2) == type("value"):
+            rs.qk = value2
+        else:
+            rs.vk = value2
     else:
-        rs.vk = value2
+        #TODO Register renaming for LD???
+        rs.a = value1
+        rs.vj = offset 
 
     if "Add.d" in operation or "Sub.d" in operation:
         fp_adder_rs.append(rs)
@@ -183,6 +205,8 @@ def issue(num):
         int_rs.append(rs)
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
+    elif "Ld" in operation:
+        load_store_rs.append(rs)
     else:
         print('why are you here?')
 
@@ -209,6 +233,12 @@ def execute():
                 FP_mult_fu.compute(rs)
                 rs.busy = True
 
+    for rs in load_store_rs:
+        if rs.busy == False and rs.vj != None and rs.a != None:
+            if LD_SD_fu.check_if_space():
+                LD_SD_fu.compute(rs)
+                rs.busy = True
+
     # Monitor Results from ALUs
 
     # Capture matching operands
@@ -217,22 +247,34 @@ def execute():
 
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
-    print(int_value)
+    #print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
     fp_mult_value = FP_mult_fu.cycle()
-    print(fp_mult_value)
+    #print(fp_mult_value)
+    ld_sd_value = LD_SD_fu.cycle()
+    print(ld_sd_value)
     # TODO: add support for CDB of multiple sizes
-    return [int_value, fp_adder_value, fp_mult_value]
+    return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
 
-def memory():
-    return
+def memory(value):
+    if value[0] != None and value[1] != None and LD_SD_fu.check_if_mem_space():
+        value = LD_SD_fu.mem_compute(value[0], value[1])
 
-def write(values):
+    if LD_SD_fu.mem_buffer_size():
+        value = LD_SD_fu.mem_cycle(Memory)
+
+
+    return value
+
+def write(values, mem_value):
     global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs
     # Broadcast on CDB
     for value in values:
         if value[0] != None and value[1] != None:
             cdb.broadcast(value[0], value[1])
+
+    if mem_value[0] != None and mem_value[1] != None:
+        cdb.broadcast(mem_value[0], mem_value[1])
 
     # Please forgive me for this code
     for k, value in enumerate(cdb.read()):
@@ -275,6 +317,19 @@ def write(values):
                             Float_Registers[int(reg[1:])] = value[0]
                     fp_mult_rs.pop(i)
                     cdb.pop(k)
+        elif 'LD' in value[1]:
+            #Free Reservation Station
+            for i, rs in enumerate(load_store_rs):
+                if rs.id == value[1]:
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+                        if entry[1] == rs.id:
+                            reg = entry[0]
+                            #print(reg)
+                            rat.pop(j)
+                            Float_Registers[int(reg[1:])] = value[0]
+                    load_store_rs.pop(i)
+                    cdb.pop(k)
                     
 
     # Writeback to RF
@@ -293,7 +348,8 @@ if __name__ == "__main__":
     # TODO: have this be dynamic
     for i in range(5):
         issue(i)
-        values = execute()
+        values, mem = execute()
+        mem_value = memory(mem)
         # writeback before execute???
-        write(values)
+        write(values, mem_value)
     output()

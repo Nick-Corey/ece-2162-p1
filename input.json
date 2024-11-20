@@ -26,7 +26,7 @@
                 "name" : "Load/Store Unit",
                 "reservation_station_num" : 3,
                 "EX cycles" : 1,
-                "mem_cycles" :  4,
+                "mem_cycles" :  1,
                 "FUs" : 1
             }
         ],
@@ -76,16 +76,20 @@
         ],
         "Memory" : [
             {
+                "name" : "0",
+                "value" : 34.3
+            },
+            {
                 "name" : "4",
-                "value" : "1"
+                "value" : 1
             },
             {
                 "name" : "8",
-                "value" : "2"
+                "value" : 2
             },
             {
                 "name" : "12",
-                "value" : "3.4"
+                "value" : 3.4
             },
             {
                 "name" : "28",
@@ -93,7 +97,7 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Mult.d R1, F2, F2"},
+            { "value" : "Ld F1 0(R0)"},
             { "value" : "Addi R4, R5, 6"},
             { "value" : "Addi R2, R3, 7"},
             { "value" : "Addi R3, R2, 9"},
