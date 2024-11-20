@@ -18,3 +18,15 @@ class CommonDataBus:
     def pop(self, idx):
         self.bus.pop(idx)
         return
+    
+    def hasData(self):
+        # Function to see if there is any good data on the CDB bus
+
+        hasData = False
+
+        # Loop through CDB, it theres data - find out
+        for entry in range(len(self.bus)):
+            if entry[0] is not None or entry[1] is not None:
+                hasData = True
+
+        return hasData 

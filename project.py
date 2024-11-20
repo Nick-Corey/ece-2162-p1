@@ -284,6 +284,8 @@ def write(values):
 
     global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs
 
+    # Update these variables later
+    writeBack = False
     writeback_instruction_id = None
 
     # Broadcast on CDB
@@ -293,7 +295,7 @@ def write(values):
         cdb_instruction_id = value[1]
 
         if result != None and cdb_instruction_id != None:
-            print('test')
+            writeBack = True
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
 
@@ -356,7 +358,7 @@ def write(values):
     # Free Reservation Station
 
     # Update Timetable - only if good data on CDB - ie not all None
-    if values[0][0] is not None and values[0][1] is not None:
+    if writeBack:
         timeTable.add_writeback(writeback_instruction_id, i+1)
 
     return

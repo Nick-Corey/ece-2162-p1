@@ -4,14 +4,14 @@
             {
                 "name" : "Integer Adder",
                 "reservation_station_num" : 2,
-                "EX cycles" : 2,
+                "EX cycles" : 1,
                 "mem_cycles" :  0,
                 "FUs" : 1
             },
             {
                 "name" : "FP Adder",
                 "reservation_station_num" : 3,
-                "EX cycles" : 1,
+                "EX cycles" : 3,
                 "mem_cycles" :  0,
                 "FUs" : 1
             },
@@ -98,8 +98,10 @@
             { "value" : "Addi R2, R3, 7"},
             { "value" : "Addi R3, R2, 9"},
             { "value" : "Addi R1, R6, 3"},
-            { "value" : "Addi R1, R2, 3"},
-            { "value" : "Addi R1, R2, 3"}
+            { "value" : "Add R1, R1, R1"},
+            { "value" : "Add.d F1, F1, F1"},
+            { "value" : "Add.d F2, F2, F2"},
+            { "value" : "Add R1, R2, R3"}
         ]
     }
 }
