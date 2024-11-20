@@ -2,7 +2,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import reservation_station
-from alu import Int_adder, FP_Adder
+from alu import Int_adder, FP_Adder, FP_Mult
 from cdb import CommonDataBus
 
 # Create Memory and Register arrays
@@ -37,7 +37,7 @@ while i < 32:
 
 # TODO: rename from main() to something more specific
 def main():
-    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size
+    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu
     # Open test case file
     with open("input.json") as test_file:
         specs = json.load(test_file)
@@ -66,6 +66,7 @@ def main():
                 FP_adder_fu = FP_Adder(operation['EX cycles'], operation['FUs'])
             if 'FP Multiplier' in operation['name']:
                 fp_mult_rs_size = operation['reservation_station_num']
+                FP_mult_fu = FP_Mult(operation['EX cycles'], operation['FUs'])
             if 'Load/Store Unit' in operation['name']:
                 load_store_rs_size = operation['reservation_station_num']
         for instruction in specs["specifications"]["Instructions"]:
@@ -202,6 +203,12 @@ def execute():
                 FP_adder_fu.compute(rs)
                 rs.busy = True
 
+    for rs in fp_mult_rs:
+        if rs.busy == False and rs.vj != None and rs.vk != None:
+            if FP_mult_fu.check_if_space():
+                FP_mult_fu.compute(rs)
+                rs.busy = True
+
     # Monitor Results from ALUs
 
     # Capture matching operands
@@ -212,9 +219,10 @@ def execute():
     int_value = Int_fu.cycle()
     print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
-    #print(fp_adder_value)
+    fp_mult_value = FP_mult_fu.cycle()
+    print(fp_mult_value)
     # TODO: add support for CDB of multiple sizes
-    return [int_value, fp_adder_value]
+    return [int_value, fp_adder_value, fp_mult_value]
 
 def memory():
     return
@@ -254,7 +262,19 @@ def write(values):
                             Float_Registers[int(reg[1:])] = value[0]
                     fp_adder_rs.pop(i)
                     cdb.pop(k)
-
+        elif 'ML' in value[1]:
+            #Free Reservation Station
+            for i, rs in enumerate(fp_mult_rs):
+                if rs.id == value[1]:
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+                        if entry[1] == rs.id:
+                            reg = entry[0]
+                            #print(reg)
+                            rat.pop(j)
+                            Float_Registers[int(reg[1:])] = value[0]
+                    fp_mult_rs.pop(i)
+                    cdb.pop(k)
                     
 
     # Writeback to RF

@@ -18,7 +18,7 @@
             {
                 "name" : "FP Multiplier",
                 "reservation_station_num" : 3,
-                "EX cycles" : 20,
+                "EX cycles" : 1,
                 "mem_cycles" :  0,
                 "FUs" : 1
             },
@@ -93,7 +93,7 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Addi R1, R2, 3"},
+            { "value" : "Mult.d R1, F2, F2"},
             { "value" : "Addi R4, R5, 6"},
             { "value" : "Addi R2, R3, 7"},
             { "value" : "Addi R3, R2, 9"},
