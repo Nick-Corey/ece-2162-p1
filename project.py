@@ -41,8 +41,6 @@ while i < 32:
     Float_Registers_Names[i] = "F" + str(i)
     i = i + 1
 
-
-# TODO: rename from main() to something more specific
 def initalize():
     global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size
     # Open test case file
@@ -248,6 +246,8 @@ def execute():
         # Record execution in timetable
         timeTable.add_execution(rs.id, i, FP_adder_fu.exec_cycles)
 
+    # TODO Add the MULT units
+
     # Monitor Results from ALUs
 
     # Capture matching operands
@@ -261,6 +261,13 @@ def execute():
     fp_adder_value = FP_adder_fu.cycle()
     #print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
+
+    # TODO ------------------------------------------
+    # We need a method of passing finished data directly to the cdb from this stage.
+    # Should not return anything from the execute function - more comments in main loop
+    # CDB buffer can have dynamic number of elements, but we must have a condition to make sure it has space
+    # Additionally we must also have some way of checking if there is enough space in FU and its buffer before we pass the data to begin executing
+
     return [int_value, fp_adder_value]
 
 def memory():
@@ -271,9 +278,9 @@ def memory():
     # for rs in memory_rs:
     #     # Do stuff
     #     # Must wait for execution to finish before accessing memory for LD
-    #     pass 
+    #      
 
-    #timeTable.add_memory()
+    #timeTable.add_memory(id, cycle)
 
     return
 
@@ -289,6 +296,16 @@ def write(values):
     writeback_instruction_id = None
 
     # Broadcast on CDB
+    # TODO -------------------------------------------------------- 
+    # CDB should be updated
+    # We should be able to append data items to item up until it is full via an insert function (looks like broadcast but the name is deceiving)
+    # We should actaully broadcast the data to all the reservation stations and ROB entries when the singular writeback element is popped off
+    # -- ie - insert data into the buffer, broadcast results to other structures when we pop the one off (it will only every be one at a time)
+    # We can add multiple items to the buffer at a time (if they finish executing at the same time and there is space) but only one will ever be broadcasted
+
+    #TODO ---------------------------------------------------------
+    #  we really shouldnt have this control loop right here - at most we will only every writeback one instruction
+    # Our buffer has varying size, but we only ever writeback one instruction. Can discuss
     for value in values:
 
         result = value[0]
@@ -299,11 +316,12 @@ def write(values):
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
 
-    # Iterate through the cdb buffer
-    for k, value in enumerate(cdb.read()):
+    # WriteBack first piece of data on CDB from CDB
+    if cdb.hasData():
 
-        result = value[0]
-        cdb_instruction_id = value[1]
+        cdb_data_item = cdb.pop()
+        result = cdb_data_item[0]
+        cdb_instruction_id = cdb_data_item[1]
 
         # If Integer Add -------------------------------------
         if 'AI' in cdb_instruction_id:
@@ -325,7 +343,7 @@ def write(values):
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = result
                     int_rs.pop(x)
-                    cdb.pop(k)
+                    cdb.pop()
 
         # If FP Add      ----------------------------------------
         elif 'AD' in cdb_instruction_id:
@@ -347,7 +365,7 @@ def write(values):
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     fp_adder_rs.pop(x)
-                    cdb.pop(k)
+                    cdb.pop()
 
         pass            
 
@@ -357,7 +375,7 @@ def write(values):
 
     # Free Reservation Station
 
-    # Update Timetable - only if good data on CDB - ie not all None
+    # Update Timetable - only if good data on CDB
     if writeBack:
         timeTable.add_writeback(writeback_instruction_id, i+1)
 
@@ -387,6 +405,10 @@ if __name__ == "__main__":
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
         issue()
+
+        # TODO -------------------------------------------------------------------------------- 
+        # Need to remove this value here - data from FUs needs to pass directly to CDB when done executing and if space is avaiable
+        # This approach is independant of the cdb object and functional units, we should cut this out
         values = execute()
         memory()
         write(values)
