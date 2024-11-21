@@ -2,7 +2,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import reservation_station
-from alu import Int_adder, FP_Adder
+from alu import Int_adder, FP_Adder, FP_Mult, LD_SD
 from cdb import CommonDataBus
 from timetable import timetable
 from reorderbuffer import ReorderBuffer
@@ -42,7 +42,7 @@ while i < 32:
     i = i + 1
 
 def initalize():
-    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size
+    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size
     # Open test case file
     with open("TestCases/input.json") as test_file:
         specs = json.load(test_file)
@@ -71,8 +71,10 @@ def initalize():
                 FP_adder_fu = FP_Adder(operation['EX cycles'], operation['FUs'])
             if 'FP Multiplier' in operation['name']:
                 fp_mult_rs_size = operation['reservation_station_num']
+                FP_mult_fu = FP_Mult(operation['EX cycles'], operation['FUs'])
             if 'Load/Store Unit' in operation['name']:
                 load_store_rs_size = operation['reservation_station_num']
+                LD_SD_fu = LD_SD(operation['EX cycles'], operation['mem_cycles'], operation['FUs'])
         for instruction in specs["specifications"]["Instructions"]:
             Instruction_Buffer.append(instruction["value"])
 
@@ -147,14 +149,22 @@ def issue():
         else:
             # Stall?
             return
-    # TODO: Branch instructions & Load/Store Instructions
+    elif "Ld" in operation:
+        instruction_type = "fp"
+        if len(load_store_rs) < load_store_rs_size:
+            rs = reservation_station.Reservation_Station("LD", i)
+        else:
+            # Stall?
+            return
+    # TODO: Branch instructions & Store Instructions
 
     # Get Destination Register
     destination = instruction_parts[1]
 
     # Read Operands from Register File
     operand1 = instruction_parts[2]
-    operand2 = instruction_parts[3]
+    if 'Ld' not in operation:
+        operand2 = instruction_parts[3]
     
     if "Addi" in operation:
         value1 = Int_Registers[int(operand1[1:])] 
@@ -167,7 +177,12 @@ def issue():
         if "fp" in instruction_type:
             value1 = Float_Registers[int(operand1[1:])] 
             value2 = Float_Registers[int(operand2[1:])] 
-
+    elif "Ld" in operation:
+        # Ld F4, 8(R1)
+        parts = operand1.replace(')', '').split('(') 
+        reg = parts[1]
+        offset = int(parts[0])
+        value1 = Int_Registers[int(reg[1:])] 
     # Record Source of other operands
 
     # TODO: Might need to add logic for duplicate RAT entries (WAW)
@@ -179,15 +194,20 @@ def issue():
     rs.operation = operation
 
     # Check if the value is a string or a number
-    if type(value1) == type("value"):
-        rs.qj = value1
+    if 'Ld' not in operation:
+        # Check if the value is a string or a number
+        if type(value1) == type("value"):
+            rs.qj = value1
+        else:
+            rs.vj = value1
+        if type(value2) == type("value"):
+            rs.qk = value2
+        else:
+            rs.vk = value2
     else:
-        rs.vj = value1
-
-    if type(value2) == type("value"):
-        rs.qk = value2
-    else:
-        rs.vk = value2
+        #TODO Register renaming for LD???
+        rs.a = value1
+        rs.vj = offset 
 
     if "Add.d" in operation or "Sub.d" in operation:
         fp_adder_rs.append(rs)
@@ -195,6 +215,8 @@ def issue():
         int_rs.append(rs)
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
+    elif "Ld" in operation:
+        load_store_rs.append(rs)
     else:
         print('why are you here?')
 
@@ -246,7 +268,39 @@ def execute():
         # Record execution in timetable
         timeTable.add_execution(rs.id, i, FP_adder_fu.exec_cycles)
 
-    # TODO Add the MULT units
+    # FP Mult Reservation Stations
+    for rs in fp_mult_rs:
+        # Cannot execute and issue on same cycle - comapare with time table
+        # Cannot execute without all operands ready
+        # Cannot execute if functional unit is busy #TODO - pipelined!!!!!
+        instruction_row = timeTable.getrowindexfromID(rs.id)
+        if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
+        if not (rs.busy == False and rs.vj != None and rs.vk != None)      : continue
+        if not (FP_mult_fu.check_if_space())                              : continue
+
+        # Begin Execution
+        FP_mult_fu.compute(rs)
+        rs.busy = True
+
+        # Record execution in timetable
+        timeTable.add_execution(rs.id, i, FP_mult_fu.exec_cycles)
+
+    # FP Mult Reservation Stations
+    for rs in load_store_rs:
+        # Cannot execute and issue on same cycle - comapare with time table
+        # Cannot execute without all operands ready
+        # Cannot execute if functional unit is busy #TODO - pipelined!!!!!
+        instruction_row = timeTable.getrowindexfromID(rs.id)
+        if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
+        if not (rs.busy == False and rs.vj != None and rs.a != None)      : continue
+        if not (LD_SD_fu.check_if_space())                              : continue
+
+        # Begin Execution
+        LD_SD_fu.compute(rs)
+        rs.busy = True
+
+        # Record execution in timetable
+        timeTable.add_execution(rs.id, i, LD_SD_fu.exec_cycles)
 
     # Monitor Results from ALUs
 
@@ -256,9 +310,11 @@ def execute():
 
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
-    print(int_value)
+    #print(int_value)
     #print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
+    fp_mult_value = FP_mult_fu.cycle()
+    ld_sd_value = LD_SD_fu.cycle()
     #print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
 
@@ -268,23 +324,23 @@ def execute():
     # CDB buffer can have dynamic number of elements, but we must have a condition to make sure it has space
     # Additionally we must also have some way of checking if there is enough space in FU and its buffer before we pass the data to begin executing
 
-    return [int_value, fp_adder_value]
+    return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
 
-def memory():
+def memory(value):
     # Memory Stage 
 
-    # If instruction is not LD - exit
+    if value[0] != None and value[1] != None and LD_SD_fu.check_if_mem_space():
+        # value equal to ???
+        value = LD_SD_fu.mem_compute(value[0], value[1])
 
-    # for rs in memory_rs:
-    #     # Do stuff
-    #     # Must wait for execution to finish before accessing memory for LD
-    #      
+    if LD_SD_fu.mem_buffer_size():
+        value = LD_SD_fu.mem_cycle(Memory)
 
     #timeTable.add_memory(id, cycle)
 
-    return
+    return value
 
-def write(values):
+def write(values, mem_value):
     # Values[n] corresponds to entries on the buffer
     # Values[n][0] is the entries' data
     # Values[n][1] is the entries' instruction id
@@ -315,6 +371,12 @@ def write(values):
             writeBack = True
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
+
+    if mem_value[0] != None and mem_value[1] != None:
+        
+        print(mem_value)
+        cdb.broadcast(mem_value[0], mem_value[1])
+        rob.markComplete(mem_value[1])
 
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():
@@ -366,7 +428,43 @@ def write(values):
                             Float_Registers[int(reg[1:])] = result
                     fp_adder_rs.pop(x)
                     cdb.pop()
+        elif 'ML' in cdb_instruction_id:
+            #Free Reservation Station
+            for x, rs in enumerate(fp_mult_rs): 
+                if rs.id == cdb_instruction_id:
+                    writeback_instruction_id = rs.id
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
 
+                        register_name = entry[0]
+                        instruction_id = entry[1]
+
+                        if instruction_id == rs.id:
+                            reg = register_name
+                            #print(reg)
+                            rat.pop(j)
+                            Float_Registers[int(reg[1:])] = result
+                    fp_mult_rs.pop(x)
+                    cdb.pop()
+        elif 'LD' in value[1]:
+            #Free Reservation Station
+            for x, rs in enumerate(load_store_rs):
+                if rs.id == value[1]:
+                    writeback_instruction_id = rs.id
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+
+
+                        register_name = entry[0]
+                        instruction_id = entry[1]
+
+                        if instruction_id == rs.id:
+                            reg = register_name
+                            #print(reg)
+                            rat.pop(j)
+                            Float_Registers[int(reg[1:])] = result
+                    load_store_rs.pop(x)
+                    cdb.pop()
         pass            
 
     # Writeback to RF
@@ -409,14 +507,14 @@ if __name__ == "__main__":
         # TODO -------------------------------------------------------------------------------- 
         # Need to remove this value here - data from FUs needs to pass directly to CDB when done executing and if space is avaiable
         # This approach is independant of the cdb object and functional units, we should cut this out
-        values = execute()
-        memory()
-        write(values)
+        values, mem = execute()
+        mem_value = memory(mem)
+        write(values, mem_value)
         commit()
 
         # Run as long as there are instructions to issue or instruction waiting to commit
         stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
         i = i + 1
-        print(rob)
+        #print(rob)
     output()
     print(timeTable)

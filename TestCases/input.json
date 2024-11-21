@@ -18,7 +18,7 @@
             {
                 "name" : "FP Multiplier",
                 "reservation_station_num" : 3,
-                "EX cycles" : 20,
+                "EX cycles" : 3,
                 "mem_cycles" :  0,
                 "FUs" : 1
             },
@@ -33,6 +33,10 @@
         "ROB entries" : 128,
         "CDB Buffer Entries" : 1,
         "Registers" : [
+            {
+                "name" : "R0",
+                "value" : 0
+            },
             {
                 "name" : "R1",
                 "value" : 10
@@ -93,7 +97,7 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Add R1, R2, R3"},
+            { "value" : "Ld F1, 0(R0)"},
             { "value" : "Addi R4, R5, 6"},
             { "value" : "Addi R2, R3, 7"},
             { "value" : "Addi R3, R2, 9"},
