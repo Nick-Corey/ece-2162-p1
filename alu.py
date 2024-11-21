@@ -13,7 +13,6 @@ class Int_adder():
         id = rs.id
         # What is the zero???
         self.buffer.append((operation, vj, vk, 0, id))
-        print(self.buffer)
         return
 
     def check_if_space(self):
@@ -28,6 +27,7 @@ class Int_adder():
         rs_num = None
         for i, inst in enumerate(self.buffer):
             inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4])
+            self.buffer[i] = inst
             if (inst[3] == self.exec_cycles):
                 if 'Add' in inst[0]:
                     return_value = inst[1] + inst[2]
@@ -39,8 +39,8 @@ class Int_adder():
                     self.buffer.pop(i)
                 else:
                     #Branch inststructions?
-                    return_value = None
-                    rs_num = None
+                    #return_value = None
+                    #rs_num = None
                     pass
         return (return_value, rs_num)
 
@@ -73,6 +73,7 @@ class FP_Adder():
         rs_num = None
         for i, inst in enumerate(self.buffer):
             inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4])
+            self.buffer[i] = inst
             if (inst[3] == self.exec_cycles):
                 if 'Add.d' in inst[0]:
                     return_value = inst[1] + inst[2]
