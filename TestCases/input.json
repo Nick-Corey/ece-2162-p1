@@ -101,8 +101,11 @@
             }
         ],
         "Instructions" : [
+            { "value" : "NOP"},
             { "value" : "Add R1, R1, R2"},
             { "value" : "Addi R2, R2, 3"},
+            { "value" : "Add R3, R2, R1"},
+            { "value" : "Mult.d F1, F3, F3"},
             { "value" : "Add R3, R2, R1"},
             { "value" : "Addi R3, R3, 3"},
             { "value" : "Sub R1, R3, R2"},

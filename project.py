@@ -2,7 +2,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import reservation_station
-from alu import Int_adder, FP_Adder, FP_Mult, LD_SD
+from alu import Int_adder, FP_Adder, FP_Mult, LD_SD, NOP
 from cdb import CommonDataBus
 from timetable import timetable
 from reorderbuffer import ReorderBuffer
@@ -13,6 +13,7 @@ Int_Registers = [0] * 32
 Float_Registers = [0.0] * 32
 Instruction_Buffer = []
 int_rs_size = 0
+nop_rs_size = 0
 fp_adder_rs_size = 0
 fp_mult_rs_size = 0
 load_store_rs_size = 0
@@ -21,6 +22,9 @@ int_rs = []
 fp_adder_rs = []
 fp_mult_rs = []
 load_store_rs = []
+nop_rs = []
+#NOP = False 
+
 
 # TODO: allow for dynamic size CDB
 cdb = CommonDataBus(1)
@@ -42,7 +46,7 @@ while i < 32:
     i = i + 1
 
 def initalize():
-    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size
+    global nop_rs, nop_rs_size, Nop_fu, Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size
     # Open test case file
     with open("TestCases/input.json") as test_file:
         specs = json.load(test_file)
@@ -75,6 +79,7 @@ def initalize():
             if 'Load/Store Unit' in operation['name']:
                 load_store_rs_size = operation['reservation_station_num']
                 LD_SD_fu = LD_SD(operation['EX cycles'], operation['mem_cycles'], operation['FUs'])
+        Nop_fu = NOP()
         for instruction in specs["specifications"]["Instructions"]:
             Instruction_Buffer.append(instruction["value"])
 
@@ -108,6 +113,7 @@ def output():
         print(rs)
     print(fp_adder_rs)
     print(fp_mult_rs)
+    print(nop_rs)
     print(rat)
 
 # RS are currently dyanically pushed and popped into a list
@@ -151,6 +157,18 @@ def issue():
         else:
             # Stall?
             return
+        
+    elif "NOP" in operation:
+        rs = reservation_station.Reservation_Station("NO", i)
+        rob.insert(rs.id)
+        rs.operation = "nop"
+        nop_rs.append(rs)
+        # Add issued instruction to the time table
+        timeTable.add_instruction(rs.id, instruction, i)
+        Instruction_Buffer.pop(0)
+        return
+
+
     elif "Ld" in operation:
         instruction_type = "fp"
         if len(load_store_rs) < load_store_rs_size:
@@ -160,10 +178,12 @@ def issue():
             return
     # TODO: Branch instructions & Store Instructions
 
-    # Get Destination Register
-    destination = instruction_parts[1]
+
 
     # Read Operands from Register File
+    
+    # Get Destination Register
+    destination = instruction_parts[1]
     operand1 = instruction_parts[2]
 
     if 'Ld' not in operation:
@@ -241,6 +261,7 @@ def issue():
     # Insert Instruction into the ROB
     rob.insert(rs.id)
 
+
     # Add issued instruction to the time table
     timeTable.add_instruction(rs.id, instruction, i)
     Instruction_Buffer.pop(0)
@@ -248,9 +269,22 @@ def issue():
     return
 
 def execute():
-    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu
+    global nop_rs, Nop_fu, Int_fu, int_rs, fp_adder_rs, FP_adder_fu
     
     # Execution Stage
+
+    for rs in nop_rs:
+        # Cannot execute and issue on same cycle - comapare with time table
+        
+        instruction_row = timeTable.getrowindexfromID(rs.id)
+        if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
+
+        # All conditions met - begin execution
+        Nop_fu.compute(rs)
+        rs.busy = True
+
+        # Record execution in timetable
+        timeTable.add_execution(rs.id, i, 1)
     
     # Integer Reservation Stations
     for rs in int_rs:
@@ -328,11 +362,13 @@ def execute():
 
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
+    nop_value = Nop_fu.cycle()
     #print(int_value)
     #print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
     fp_mult_value = FP_mult_fu.cycle()
     ld_sd_value = LD_SD_fu.cycle()
+
     #print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
 
@@ -342,7 +378,7 @@ def execute():
     # CDB buffer can have dynamic number of elements, but we must have a condition to make sure it has space
     # Additionally we must also have some way of checking if there is enough space in FU and its buffer before we pass the data to begin executing
 
-    return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
+    return [int_value, fp_adder_value, fp_mult_value, nop_value], ld_sd_value
 
 def memory(value):
     # Memory Stage 
@@ -363,11 +399,13 @@ def write(values, mem_value):
     # Values[n][0] is the entries' data
     # Values[n][1] is the entries' instruction id
 
-    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs
+    global Int_Registers, nop_rs, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs
 
     # Update these variables later
     writeBack = False
     writeback_instruction_id = None
+
+
 
     # Broadcast on CDB
     # TODO -------------------------------------------------------- 
@@ -399,9 +437,15 @@ def write(values, mem_value):
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():
 
-        cdb_data_item = cdb.pop()
+        cdb_data_item = cdb.pop() #potential bug
         result = cdb_data_item[0]
         cdb_instruction_id = cdb_data_item[1]
+
+        # If NOP -------------------------------------
+        if 'NO' in cdb_instruction_id:
+            writeback_instruction_id = nop_rs[0].id
+            nop_rs.pop()
+            cdb.pop()
 
         # If Integer Add -------------------------------------
         if 'AI' in cdb_instruction_id:

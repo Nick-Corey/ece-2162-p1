@@ -188,3 +188,39 @@ class LD_SD():
                 rs_num = inst[1]
                 self.mem_buffer.pop(x)
         return (return_value, rs_num)
+    
+
+class NOP():
+
+    def __init__(self):
+        self.exec_cycles = 1
+        self.fus = 1
+
+        self.buffer = []
+
+    def compute(self, rs):
+        operation = rs.operation
+        vj = None
+        vk = None
+        id = rs.id
+        self.buffer.append((operation, vj, vk, 0, id))
+        return
+
+    def check_if_space(self):
+        # This is maybe wrong? Probably not though
+        if len(self.buffer) < self.fus:
+            return True
+        else:
+            return False
+
+    def cycle(self):
+        return_value = None
+        rs_num = None
+        for i, inst in enumerate(self.buffer):
+            inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4])
+            self.buffer[i] = inst
+            if (inst[3] == self.exec_cycles):
+                return_value = True
+                rs_num = inst[4]
+                self.buffer.pop(i)
+        return (return_value, rs_num)
