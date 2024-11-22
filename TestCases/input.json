@@ -17,8 +17,8 @@
             },
             {
                 "name" : "FP Multiplier",
-                "reservation_station_num" : 3,
-                "EX cycles" : 3,
+                "reservation_station_num" : 2,
+                "EX cycles" : 20,
                 "mem_cycles" :  0,
                 "FUs" : 1
             },
@@ -39,15 +39,15 @@
             },
             {
                 "name" : "R1",
-                "value" : 10
+                "value" : 3
             },
             {
                 "name" : "R2",
-                "value" : 0
+                "value" : 4
             },
             {
                 "name" : "R3",
-                "value" : 5
+                "value" : 10
             },
             {
                 "name" : "R4",
@@ -71,11 +71,15 @@
             },
             {
                 "name" : "F2",
-                "value" : 3.0
+                "value" : 4.2
             },
             {
                 "name" : "F1",
-                "value" : 4.0
+                "value" : 43.0
+            },
+            {
+                "name" : "F3",
+                "value" : 1.1
             }
         ],
         "Memory" : [
@@ -97,15 +101,13 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Ld F1, 0(R0)"},
-            { "value" : "Addi R4, R5, 6"},
-            { "value" : "Addi R2, R3, 7"},
-            { "value" : "Addi R3, R2, 9"},
-            { "value" : "Addi R1, R6, 3"},
-            { "value" : "Add R1, R1, R1"},
-            { "value" : "Add.d F1, F1, F1"},
-            { "value" : "Add.d F2, F2, F2"},
-            { "value" : "Add R1, R2, R3"}
+            { "value" : "Add R1, R1, R2"},
+            { "value" : "Addi R2, R2, 3"},
+            { "value" : "Add R3, R2, R1"},
+            { "value" : "Addi R3, R3, 3"},
+            { "value" : "Sub R1, R3, R2"},
+            { "value" : "Add.d F3, F2, F1"},
+            { "value" : "Mult.d F1, F3, F3"}
         ]
     }
 }
