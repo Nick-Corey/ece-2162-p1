@@ -116,6 +116,8 @@ def output():
 def issue():
     global int_rs, fp_adder_rs
     instruction_type = ""
+    value1 = None
+    value2 = None
     # If no instructions left - nothing to issue - exit
     if not Instruction_Buffer:
         return
@@ -163,26 +165,42 @@ def issue():
 
     # Read Operands from Register File
     operand1 = instruction_parts[2]
+
     if 'Ld' not in operation:
         operand2 = instruction_parts[3]
+
+    #Search RAT for dependencies
+    for entry in rat:
+        if operand1 in entry[0]:
+            print('dependency! 1', operand1)
+            value1 = entry[1]
+        if operand2 in entry[0]:
+            print('dependency! 2', operand2)
+            value2 = entry[1]
     
     if "Addi" in operation:
-        value1 = Int_Registers[int(operand1[1:])] 
+        if value1 is None:
+            value1 = Int_Registers[int(operand1[1:])] 
         value2 = int(operand2)
     elif "Add.d" in operation or "Add" in operation or "Mult.d" in operation or "Sub.d" in operation or "Sub" in operation:
         if "int" in instruction_type:
-            value1 = Int_Registers[int(operand1[1:])] 
-            value2 = Int_Registers[int(operand2[1:])]
+            if value1 is None:
+                value1 = Int_Registers[int(operand1[1:])] 
+            if value2 is None:
+                value2 = Int_Registers[int(operand2[1:])]
 
         if "fp" in instruction_type:
-            value1 = Float_Registers[int(operand1[1:])] 
-            value2 = Float_Registers[int(operand2[1:])] 
+            if value1 is None:
+                value1 = Float_Registers[int(operand1[1:])] 
+            if value2 is None:
+                value2 = Float_Registers[int(operand2[1:])] 
     elif "Ld" in operation:
         # Ld F4, 8(R1)
         parts = operand1.replace(')', '').split('(') 
         reg = parts[1]
         offset = int(parts[0])
-        value1 = Int_Registers[int(reg[1:])] 
+        if value1 is None:
+            value1 = Int_Registers[int(reg[1:])] 
     # Record Source of other operands
 
     # TODO: Might need to add logic for duplicate RAT entries (WAW)
@@ -345,7 +363,7 @@ def write(values, mem_value):
     # Values[n][0] is the entries' data
     # Values[n][1] is the entries' instruction id
 
-    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs
+    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs
 
     # Update these variables later
     writeBack = False
@@ -402,6 +420,9 @@ def write(values, mem_value):
                         if instruction_id == rs.id:
                             reg = register_name
                             #print(reg)
+                            int_rs = searchRS(reg, result, int_rs)
+                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = result
                     int_rs.pop(x)
@@ -424,6 +445,8 @@ def write(values, mem_value):
                         if instruction_id == rs.id:
                             reg = register_name
                             #print(reg)
+                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
+                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     fp_adder_rs.pop(x)
@@ -442,6 +465,8 @@ def write(values, mem_value):
                         if instruction_id == rs.id:
                             reg = register_name
                             #print(reg)
+                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     fp_mult_rs.pop(x)
@@ -493,12 +518,31 @@ def commit():
         # Must offset cycle since they technically execute in sequential order here but not in actuality
         timeTable.add_commit(instruction_id, i+2)
 
+
+def searchRS(register, value, rs_list):
+    for idx, rs in enumerate(rs_list):
+        if rs.qj is not None:
+            for entry in rat:
+                if entry[1] == rs.qj:
+                    rs.qj = None
+                    rs.vj = value
+        if rs.qk is not None:
+            for entry in rat:
+                if entry[1] == rs.qk:
+                    rs.qk = None
+                    rs.vk = value
+        print(rs)
+        rs_list[idx] = rs
+    return rs_list
+
+
+
 if __name__ == "__main__":
     
     # Begin
     initalize()
     stuff_to_be_done = True
-    i = 0
+    i = 1
 
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
