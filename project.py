@@ -367,13 +367,14 @@ def write(values, mem_value):
         result = value[0]
         cdb_instruction_id = value[1]
 
+        # if there is data to broadcast
         if result != None and cdb_instruction_id != None:
             writeBack = True
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
 
+    # Mem
     if mem_value[0] != None and mem_value[1] != None:
-        
         print(mem_value)
         cdb.broadcast(mem_value[0], mem_value[1])
         rob.markComplete(mem_value[1])
@@ -409,7 +410,6 @@ def write(values, mem_value):
 
         # If FP Add      ----------------------------------------
         elif 'AD' in cdb_instruction_id:
-
             #Free Reservation Station
             for x, rs in enumerate(fp_adder_rs):
                 if rs.id == cdb_instruction_id:
