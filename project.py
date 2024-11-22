@@ -428,6 +428,7 @@ def write(values, mem_value):
                             Float_Registers[int(reg[1:])] = result
                     fp_adder_rs.pop(x)
                     cdb.pop()
+
         elif 'ML' in cdb_instruction_id:
             #Free Reservation Station
             for x, rs in enumerate(fp_mult_rs): 
@@ -446,6 +447,7 @@ def write(values, mem_value):
                             Float_Registers[int(reg[1:])] = result
                     fp_mult_rs.pop(x)
                     cdb.pop()
+
         elif 'LD' in value[1]:
             #Free Reservation Station
             for x, rs in enumerate(load_store_rs):
