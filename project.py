@@ -108,6 +108,9 @@ def output():
         print(rs)
     print(fp_adder_rs)
     print(fp_mult_rs)
+    # print(load_store_rs)
+    for rs in load_store_rs:
+        print(rs)
     print(rat)
 
 # RS are currently dyanically pushed and popped into a list
@@ -151,7 +154,7 @@ def issue():
         else:
             # Stall?
             return
-    elif "Ld" in operation:
+    elif "Ld" in operation or "Sd" in operation:
         instruction_type = "fp"
         if len(load_store_rs) < load_store_rs_size:
             rs = reservation_station.Reservation_Station("LD", i)
@@ -166,17 +169,15 @@ def issue():
     # Read Operands from Register File
     operand1 = instruction_parts[2]
 
-    if 'Ld' not in operation:
+    if 'Ld' not in operation and 'Sd' not in operation:
         operand2 = instruction_parts[3]
 
-    #Search RAT for dependencies
-    for entry in rat:
-        if operand1 in entry[0]:
-            print('dependency! 1', operand1)
-            value1 = entry[1]
-        if operand2 in entry[0]:
-            print('dependency! 2', operand2)
-            value2 = entry[1]
+        #Search RAT for dependencies
+        for entry in rat:
+            if operand1 in entry[0]:
+                value1 = entry[1]
+            if operand2 in entry[0]:
+                value2 = entry[1]
     
     if "Addi" in operation:
         if value1 is None:
@@ -201,6 +202,15 @@ def issue():
         offset = int(parts[0])
         if value1 is None:
             value1 = Int_Registers[int(reg[1:])] 
+    elif "Sd" in operation:
+        # Ld F4, 8(R1)
+        parts = operand1.replace(')', '').split('(') 
+        reg = parts[1]
+        offset = int(parts[0])
+        if value1 is None:
+            value1 = Int_Registers[int(reg[1:])] 
+        if value2 is None:
+            value2 = Float_Registers[int(destination[1:])] 
     # Record Source of other operands
 
     # TODO: Might need to add logic for duplicate RAT entries (WAW)
@@ -211,8 +221,21 @@ def issue():
     # Place values in RS
     rs.operation = operation
 
+    if 'Ld' in operation:
+        #TODO Register renaming for LD???
+        rs.a = value1
+        rs.vj = offset
+    elif 'Sd' in operation:
+        #TODO Register renaming for SD
+        rs.a = value1
+        rs.vj = offset
+        #rs.vk = value2
+        if type(value2) == type("value"):
+            rs.qk = value2
+        else:
+            rs.vk = value2
     # Check if the value is a string or a number
-    if 'Ld' not in operation:
+    else:
         # Check if the value is a string or a number
         if type(value1) == type("value"):
             rs.qj = value1
@@ -222,10 +245,7 @@ def issue():
             rs.qk = value2
         else:
             rs.vk = value2
-    else:
-        #TODO Register renaming for LD???
-        rs.a = value1
-        rs.vj = offset 
+
 
     if "Add.d" in operation or "Sub.d" in operation:
         fp_adder_rs.append(rs)
@@ -233,7 +253,8 @@ def issue():
         int_rs.append(rs)
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
-    elif "Ld" in operation:
+    elif "Ld" in operation or "Sd" in operation:
+        print(rs)
         load_store_rs.append(rs)
     else:
         print('why are you here?')
@@ -328,12 +349,9 @@ def execute():
 
     # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
-    #print(int_value)
-    #print(int_value)
     fp_adder_value = FP_adder_fu.cycle()
     fp_mult_value = FP_mult_fu.cycle()
     ld_sd_value = LD_SD_fu.cycle()
-    #print(fp_adder_value)
     # TODO: add support for CDB of multiple sizes
 
     # TODO ------------------------------------------
@@ -345,18 +363,24 @@ def execute():
     return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
 
 def memory(value):
+    new_value = None
     # Memory Stage 
 
-    if value[0] != None and value[1] != None and LD_SD_fu.check_if_mem_space():
-        # value equal to ???
-        value = LD_SD_fu.mem_compute(value[0], value[1])
+    # if not (value[0] != None and value[1] != None and value[2] == "Ld"):
+    #     if len(load_store_queue):
+    #         value = load_store_queue.pop()
+
+    if value[0] != None and value[1] != None and value[2] == "Ld":
+        if LD_SD_fu.check_if_mem_space():
+            # value equal to ???
+            LD_SD_fu.mem_compute(value[0], value[1], 'Ld', value[3])
 
     if LD_SD_fu.mem_buffer_size():
-        value = LD_SD_fu.mem_cycle(Memory)
+        new_value = LD_SD_fu.mem_cycle(Memory, 'Ld')
 
-    #timeTable.add_memory(id, cycle)
+        timeTable.add_memory(value[1], i, LD_SD_fu.mem_cycles)
 
-    return value
+    return new_value
 
 def write(values, mem_value):
     # Values[n] corresponds to entries on the buffer
@@ -389,12 +413,11 @@ def write(values, mem_value):
             writeBack = True
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
-
-    if mem_value[0] != None and mem_value[1] != None:
-        
-        print(mem_value)
-        cdb.broadcast(mem_value[0], mem_value[1])
-        rob.markComplete(mem_value[1])
+    if mem_value:
+        if mem_value[0] != None and mem_value[1] != None:
+            if "Ld" in mem_value[2]:
+                cdb.broadcast(mem_value[0], mem_value[1])
+                rob.markComplete(mem_value[1])
 
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():
@@ -419,7 +442,6 @@ def write(values, mem_value):
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            #print(reg)
                             int_rs = searchRS(reg, result, int_rs)
                             fp_mult_rs = searchRS(reg, result, fp_mult_rs)
                             fp_adder_rs = searchRS(reg, result, fp_adder_rs)
@@ -444,7 +466,6 @@ def write(values, mem_value):
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            #print(reg)
                             fp_adder_rs = searchRS(reg, result, fp_adder_rs)
                             fp_mult_rs = searchRS(reg, result, fp_mult_rs)
                             rat.pop(j)
@@ -464,34 +485,33 @@ def write(values, mem_value):
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            #print(reg)
                             fp_mult_rs = searchRS(reg, result, fp_mult_rs)
                             fp_adder_rs = searchRS(reg, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     fp_mult_rs.pop(x)
                     cdb.pop()
-        elif 'LD' in value[1]:
+        elif 'LD' in cdb_instruction_id:
             #Free Reservation Station
             for x, rs in enumerate(load_store_rs):
-                if rs.id == value[1]:
+
+                if rs.id == cdb_instruction_id and rs.operation == "Ld":
                     writeback_instruction_id = rs.id
                     #Update register file and RAT
                     for j, entry in enumerate(rat):
-
 
                         register_name = entry[0]
                         instruction_id = entry[1]
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            #print(reg)
+                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     load_store_rs.pop(x)
                     cdb.pop()
         pass            
-
     # Writeback to RF
 
     # Updating Mapping
@@ -504,7 +524,33 @@ def write(values, mem_value):
 
     return
 
-def commit():
+def commit(mem_value):
+    global load_store_rs, LD_SD_fu, Float_Registers, Memory
+    #Store instruction
+    if mem_value[0] != None and mem_value[1] != None and LD_SD_fu.check_if_mem_space() and mem_value[2] == "Sd":
+        # value equal to ???
+        LD_SD_fu.mem_compute(mem_value[0], mem_value[1], mem_value[2], mem_value[3])
+    
+    if LD_SD_fu.mem_buffer_size():
+        value = LD_SD_fu.mem_cycle(Memory, 'Sd')
+        if value and value[1]:
+            Memory = value[0]
+            for x, rs in enumerate(load_store_rs):
+                if rs.id == value[1] and rs.operation == "Sd":
+                    commit_id = rs.id
+
+                    #Update register file and RAT
+                    for j, entry in enumerate(rat):
+
+
+                        register_name = entry[0]
+                        instruction_id = entry[1]
+
+                        if instruction_id == rs.id:
+                            reg = register_name
+                            rat.pop(j)
+                    load_store_rs.pop(x)
+                    rob.markComplete(commit_id)
 
     # If the ROB is empty then nothing can be done
     if rob.isEmpty(): return
@@ -531,7 +577,6 @@ def searchRS(register, value, rs_list):
                 if entry[1] == rs.qk:
                     rs.qk = None
                     rs.vk = value
-        print(rs)
         rs_list[idx] = rs
     return rs_list
 
@@ -554,11 +599,10 @@ if __name__ == "__main__":
         values, mem = execute()
         mem_value = memory(mem)
         write(values, mem_value)
-        commit()
-
+        commit(mem)
         # Run as long as there are instructions to issue or instruction waiting to commit
         stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
         i = i + 1
-        #print(rob)
+        # print(rob)
     output()
     print(timeTable)
