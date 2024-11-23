@@ -26,6 +26,12 @@ load_store_rs = []
 cdb = CommonDataBus(1)
 rat = []
 
+# These get passed to writeback stage
+values          = []
+values_p        = []
+mem_value       = []
+mem_value_p     = []
+
 # Create time table
 timeTable = timetable()
 
@@ -118,6 +124,7 @@ def issue():
     instruction_type = ""
     value1 = None
     value2 = None
+
     # If no instructions left - nothing to issue - exit
     if not Instruction_Buffer:
         return
@@ -251,7 +258,7 @@ def execute():
     global Int_fu, int_rs, fp_adder_rs, FP_adder_fu
     
     # Execution Stage
-    
+    pass
     # Integer Reservation Stations
     for rs in int_rs:
         # Cannot execute and issue on same cycle - comapare with time table
@@ -303,7 +310,7 @@ def execute():
         # Record execution in timetable
         timeTable.add_execution(rs.id, i, FP_mult_fu.exec_cycles)
 
-    # FP Mult Reservation Stations
+    # Load Store Reservation Stations
     for rs in load_store_rs:
         # Cannot execute and issue on same cycle - comapare with time table
         # Cannot execute without all operands ready
@@ -358,7 +365,8 @@ def memory(value):
 
     return value
 
-def write(values, mem_value):
+def write():
+    global values_p, values, mem_value_p, mem_value
     # Values[n] corresponds to entries on the buffer
     # Values[n][0] is the entries' data
     # Values[n][1] is the entries' instruction id
@@ -377,11 +385,11 @@ def write(values, mem_value):
     # -- ie - insert data into the buffer, broadcast results to other structures when we pop the one off (it will only every be one at a time)
     # We can add multiple items to the buffer at a time (if they finish executing at the same time and there is space) but only one will ever be broadcasted
 
+
     #TODO ---------------------------------------------------------
     #  we really shouldnt have this control loop right here - at most we will only every writeback one instruction
     # Our buffer has varying size, but we only ever writeback one instruction. Can discuss
     for value in values:
-
         result = value[0]
         cdb_instruction_id = value[1]
 
@@ -391,11 +399,12 @@ def write(values, mem_value):
             cdb.broadcast(result, cdb_instruction_id)
             rob.markComplete(cdb_instruction_id)
 
-    # Mem
-    if mem_value[0] != None and mem_value[1] != None:
-        print(mem_value)
-        cdb.broadcast(mem_value[0], mem_value[1])
-        rob.markComplete(mem_value[1])
+    # Write memory back
+    if mem_value:
+        if mem_value[0] != None and mem_value[1] != None:
+            print(mem_value)
+            cdb.broadcast(mem_value[0], mem_value[1])
+            rob.markComplete(mem_value[1])
 
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():
@@ -452,6 +461,7 @@ def write(values, mem_value):
                     fp_adder_rs.pop(x)
                     cdb.pop()
 
+        # If FP Mult      ----------------------------------------
         elif 'ML' in cdb_instruction_id:
             #Free Reservation Station
             for x, rs in enumerate(fp_mult_rs): 
@@ -473,6 +483,7 @@ def write(values, mem_value):
                     fp_mult_rs.pop(x)
                     cdb.pop()
 
+        # If load store   ---------------------------------------
         elif 'LD' in value[1]:
             #Free Reservation Station
             for x, rs in enumerate(load_store_rs):
@@ -500,9 +511,13 @@ def write(values, mem_value):
 
     # Free Reservation Station
 
+    # We pipeline data by a cycle so that execution and writeback occur on different cycles
+    values    = values_p[:]
+    mem_value = mem_value_p[:]
+
     # Update Timetable - only if good data on CDB
     if writeBack:
-        timeTable.add_writeback(writeback_instruction_id, i+1)
+        timeTable.add_writeback(writeback_instruction_id, i)
 
     return
 
@@ -525,22 +540,21 @@ def searchRS(register, value, rs_list):
     for idx, rs in enumerate(rs_list):
         if rs.qj is not None:
             for entry in rat:
-                if entry[1] == rs.qj:
-                    rs.qj = None
-                    rs.vj = value
+                 if entry[0] == register and entry[1] == rs.qj:
+                        rs.qj = None
+                        rs.vj = value
         if rs.qk is not None:
             for entry in rat:
-                if entry[1] == rs.qk:
-                    rs.qk = None
-                    rs.vk = value
+                 if entry[0] == register and entry[1] == rs.qk:
+                        rs.qk = None
+                        rs.vk = value
         print(rs)
         rs_list[idx] = rs
     return rs_list
 
 
-
 if __name__ == "__main__":
-    
+
     # Begin
     initalize()
     stuff_to_be_done = True
@@ -553,14 +567,14 @@ if __name__ == "__main__":
         # TODO -------------------------------------------------------------------------------- 
         # Need to remove this value here - data from FUs needs to pass directly to CDB when done executing and if space is avaiable
         # This approach is independant of the cdb object and functional units, we should cut this out
-        values, mem = execute()
-        mem_value = memory(mem)
-        write(values, mem_value)
+        values_p, mem = execute()
+        mem_value_p = memory(mem)
+        write()
         commit()
 
         # Run as long as there are instructions to issue or instruction waiting to commit
         stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
         i = i + 1
-        #print(rob)
+
     output()
     print(timeTable)
