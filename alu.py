@@ -135,9 +135,10 @@ class LD_SD():
     def compute(self, rs):
         operation = rs.operation
         vj = rs.vj
+        vk = rs.vk
         a = rs.a
         id = rs.id
-        self.buffer.append((operation, vj, a, 0, id))
+        self.buffer.append((operation, vj, a, 0, id, vk))
         #print(self.buffer)
         return
 
@@ -151,15 +152,18 @@ class LD_SD():
     def cycle(self):
         return_value = None
         rs_num = None
+        operation = None
+        store_value = None
         for x, inst in enumerate(self.buffer):
-            inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4])
+            inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4], inst[5])
             self.buffer[x] = inst
             if (inst[3] == self.exec_cycles):
-                if 'Ld' in inst[0]:
-                    return_value = int(inst[1] / 4) + inst[2]
-                    rs_num = inst[4]
-                    self.buffer.pop(x)
-        return (return_value, rs_num)
+                operation = inst[0]
+                return_value = int(inst[1]) + inst[2]
+                rs_num = inst[4]
+                store_value = inst[5]
+                self.buffer.pop(x)
+        return (return_value, rs_num, operation, store_value)
 
     def check_if_mem_space(self):
         # using the same fus values... not sure if right
@@ -171,20 +175,35 @@ class LD_SD():
     def mem_buffer_size(self):
         return len(self.mem_buffer)
 
-    def mem_compute(self, a, id):
+    def mem_compute(self, a, id, oper, value):
         # (address, reservation station id, cycle number)
-        self.mem_buffer.append((a, id, 0))
-        #print(self.buffer)
+        self.mem_buffer.append((a, id, 0, oper, value))
         return
 
-    def mem_cycle(self, memory):
+    def mem_cycle(self, memory, oper):
         return_value = None
         rs_num = None
-        for x, inst in enumerate(self.mem_buffer):
-            inst = (inst[0], inst[1], inst[2] + 1)
-            self.mem_buffer[x] = inst
-            if (inst[2] == self.mem_cycles):
-                return_value = memory[int(inst[0])]
-                rs_num = inst[1]
-                self.mem_buffer.pop(x)
-        return (return_value, rs_num)
+        if 'Ld' in oper:
+            for x, inst in enumerate(self.mem_buffer):
+                if inst[3] == 'Ld':
+                    inst = (inst[0], inst[1], inst[2] + 1, inst[3], inst[4])
+                    self.mem_buffer[x] = inst
+                    if (inst[2] == self.mem_cycles):
+                        return_value = memory[int(inst[0])]
+                        rs_num = inst[1]
+                        self.mem_buffer.pop(x)
+                        return (return_value, rs_num, inst[3])
+            #return (None, None, None)
+        elif 'Sd' in oper:
+            for x, inst in enumerate(self.mem_buffer):
+                if inst[3] == 'Sd':
+                    inst = (inst[0], inst[1], inst[2] + 1, inst[3], inst[4])
+                    self.mem_buffer[x] = inst
+                    if (inst[2] == self.mem_cycles):
+                        memory[int(inst[0])] = inst[4]
+                        rs_num = inst[1]
+                        self.mem_buffer.pop(x)
+                    return (memory, rs_num, inst[3])
+            #return (None, None, None)
+        else:
+            return (None, None, None)
