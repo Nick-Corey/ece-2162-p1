@@ -370,7 +370,7 @@ def execute():
     return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
 
 def memory(value):
-    new_value = None
+    new_value = []
     # Memory Stage 
 
     # if not (value[0] != None and value[1] != None and value[2] == "Ld"):
@@ -384,9 +384,10 @@ def memory(value):
 
     if LD_SD_fu.mem_buffer_size():
         new_value = LD_SD_fu.mem_cycle(Memory, 'Ld')
-
-        timeTable.add_memory(value[1], i, LD_SD_fu.mem_cycles)
-
+        if new_value and new_value[1]:
+            timeTable.add_memory(new_value[1], i, LD_SD_fu.mem_cycles)
+    if not new_value:
+        new_value = []
     return new_value
 
 def write():
@@ -591,7 +592,7 @@ def searchRS(register, value, rs_list):
                  if entry[0] == register and entry[1] == rs.qk:
                         rs.qk = None
                         rs.vk = value
-        print(rs)
+        #print(rs)
         rs_list[idx] = rs
     return rs_list
 

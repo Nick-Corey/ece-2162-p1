@@ -192,7 +192,7 @@ class LD_SD():
                         return_value = memory[int(inst[0])]
                         rs_num = inst[1]
                         self.mem_buffer.pop(x)
-                    return (return_value, rs_num, inst[3])
+                        return (return_value, rs_num, inst[3])
             #return (None, None, None)
         elif 'Sd' in oper:
             for x, inst in enumerate(self.mem_buffer):
