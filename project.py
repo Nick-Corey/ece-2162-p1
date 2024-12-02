@@ -25,6 +25,7 @@ load_store_rs = []
 # TODO: allow for dynamic size CDB
 cdb = CommonDataBus(1)
 rat = []
+load_store_queue = []
 
 # These get passed to writeback stage
 values          = []
@@ -261,7 +262,6 @@ def issue():
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
     elif "Ld" in operation or "Sd" in operation:
-        print(rs)
         load_store_rs.append(rs)
     else:
         print('why are you here?')
@@ -277,7 +277,6 @@ def issue():
 
 def execute():
     global Int_fu, int_rs, fp_adder_rs, FP_adder_fu
-    
     # Execution Stage
     pass
     # Integer Reservation Stations
@@ -370,22 +369,36 @@ def execute():
     return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
 
 def memory(value):
+    global load_store_queue
+
     new_value = []
     # Memory Stage 
 
     # if not (value[0] != None and value[1] != None and value[2] == "Ld"):
     #     if len(load_store_queue):
     #         value = load_store_queue.pop()
-
     if value[0] != None and value[1] != None and value[2] == "Ld":
+        load_store_queue.append((value[0], value[1], 'Ld', value[3]))
+
+    if len(load_store_queue):
         if LD_SD_fu.check_if_mem_space():
             # value equal to ???
-            LD_SD_fu.mem_compute(value[0], value[1], 'Ld', value[3])
+            inst = load_store_queue[0]
+            if inst[2] == 'Ld':
+                LD_SD_fu.mem_compute(inst[0], inst[1], inst[2], inst[3])
+                load_store_queue.pop()
+    # elif value[0] != None and value[1] != None and value[2] == "Ld":
+    #     if LD_SD_fu.check_if_mem_space():
+    #         # value equal to ???
+    #         LD_SD_fu.mem_compute(value[0], value[1], 'Ld', value[3])
+    #     else:
+    #         load_store_queue.append((value[0], value[1], 'Ld', value[3]))
+
 
     if LD_SD_fu.mem_buffer_size():
         new_value = LD_SD_fu.mem_cycle(Memory, 'Ld')
         if new_value and new_value[1]:
-            timeTable.add_memory(new_value[1], i, LD_SD_fu.mem_cycles)
+            timeTable.add_memory(new_value[1], i+2, LD_SD_fu.mem_cycles)
     if not new_value:
         new_value = []
     return new_value
@@ -396,7 +409,7 @@ def write():
     # Values[n][0] is the entries' data
     # Values[n][1] is the entries' instruction id
 
-    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs
+    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs, cdb
 
     # Update these variables later
     writeBack = False
@@ -409,6 +422,11 @@ def write():
     # We should actaully broadcast the data to all the reservation stations and ROB entries when the singular writeback element is popped off
     # -- ie - insert data into the buffer, broadcast results to other structures when we pop the one off (it will only every be one at a time)
     # We can add multiple items to the buffer at a time (if they finish executing at the same time and there is space) but only one will ever be broadcasted
+
+
+    # Checking if load/store forwarding occured
+    if cdb.hasData():
+        writeBack = True
 
 
     #TODO ---------------------------------------------------------
@@ -540,11 +558,21 @@ def write():
     return
 
 def commit(mem_value):
-    global load_store_rs, LD_SD_fu, Float_Registers, Memory
+    global load_store_rs, LD_SD_fu, Float_Registers, Memory, load_store_queue, cdb, timeTable
     #Store instruction
-    if mem_value[0] != None and mem_value[1] != None and LD_SD_fu.check_if_mem_space() and mem_value[2] == "Sd":
-        # value equal to ???
-        LD_SD_fu.mem_compute(mem_value[0], mem_value[1], mem_value[2], mem_value[3])
+
+    if mem_value[0] != None and mem_value[1] != None and mem_value[2] == "Sd":
+        load_store_queue.append((mem_value[0], mem_value[1], mem_value[2], mem_value[3]))
+
+    if len(load_store_queue):
+        if LD_SD_fu.check_if_mem_space():
+            
+            inst = load_store_queue[0]
+            index = rob.getrowindexfromID(inst[1])
+            # Check if it is a store instruction and that it is next in line to be committed
+            if inst[2] == 'Sd' and index == 0:
+                LD_SD_fu.mem_compute(inst[0], inst[1], inst[2], inst[3])
+                load_store_queue.pop(0)
     
     if LD_SD_fu.mem_buffer_size():
         value = LD_SD_fu.mem_cycle(Memory, 'Sd')
@@ -566,6 +594,14 @@ def commit(mem_value):
                             rat.pop(j)
                     load_store_rs.pop(x)
                     rob.markComplete(commit_id)
+                    instruction_id, commit_success = rob.commit()
+
+                    if commit_success and instruction_id is not None:
+                        # Must offset cycle since they technically execute in sequential order here but not in actuality
+                        timeTable.add_store_commit(instruction_id, i+2, LD_SD_fu.mem_cycles)
+
+                    # Needs to be able to access several hardware components, might be able to clean this up
+                    load_store_rs, load_store_queue, cdb, timeTable = loadStoreForwarding(rs.a, rs.vj ,rs.vk, load_store_rs, load_store_queue, cdb, rob, timeTable)
 
     # If the ROB is empty then nothing can be done
     if rob.isEmpty(): return
@@ -595,6 +631,22 @@ def searchRS(register, value, rs_list):
         #print(rs)
         rs_list[idx] = rs
     return rs_list
+
+# Loop thorugh the load store reservation stations and find RS entries with the same memory address and forward the value
+def loadStoreForwarding(address, offset ,value, rs_list, queue, cdb, rob, timeTable):
+    real_address = address + offset
+    for idx, rs in enumerate(rs_list):
+        # Checking for load instructions
+        if rs.a is not None and rs.vj is not None and rs.vk is None:
+            if (rs.a + rs.vj) == real_address:
+                cdb.broadcast(value, rs.id)
+                rob.markComplete(rs.id)
+                timeTable.add_memory(rs.id, i+1, 1)
+
+                for j, entry in enumerate(queue):
+                    if entry[1] == rs.id:
+                        queue.pop(j)
+    return rs_list, queue, cdb, timeTable
 
 
 if __name__ == "__main__":

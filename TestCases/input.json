@@ -101,17 +101,12 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Ld F2, 4(R1)"},
-            { "value" : "Add R1, R1, R2"},
-            { "value" : "Addi R2, R2, 3"},
-            { "value" : "Add R3, R2, R1"},
-            { "value" : "Addi R3, R3, 5"},
-            { "value" : "Sub R1, R3, R2"},
-            { "value" : "Add.d F3, F2, F1"},
-            { "value" : "Mult.d F1, F3, F3"},
-            { "value" : "Sd F1, 0(R1)"},
-            { "value" : "Sub.d F2, F2, F3"}
-
+            { "value" : "Ld F1, 0(R1)"},
+            { "value" : "Add.d F2, F1, F3"},
+            { "value" : "Add.d F3, F3, F3"},
+            { "value" : "Sd F2, 0(R3)"},
+            { "value" : "Ld F1, 0(R3)"},
+            { "value" : "Sd F3, 0(R3)"}
         ]
     }
 }
