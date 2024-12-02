@@ -203,7 +203,7 @@ class LD_SD():
                         memory[int(inst[0])] = inst[4]
                         rs_num = inst[1]
                         self.mem_buffer.pop(x)
-                    return (memory, rs_num, inst[3])
+                        return (memory, rs_num, inst[3])
             #return (None, None, None)
         else:
             return (None, None, None)

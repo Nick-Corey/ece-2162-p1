@@ -55,7 +55,7 @@ class timetable():
         # Add to table
         self.table[row_index][self.execute_loc] = msg
 
-    def add_memory(self, id:str, cycle:int, cycle_span):
+    def add_memory(self, id:str, cycle:int, cycle_span:int):
         # Update table with memory instructions
         # Only load has a memory stage, - everything else is NA by default (~)
 
@@ -65,7 +65,7 @@ class timetable():
             cycle_span = 4
 
         row_index = self.getrowindexfromID(id)
-        self.table[row_index][self.mem_loc] = f"{cycle}-{cycle+cycle_span-1}"
+        self.table[row_index][self.mem_loc] = f"{cycle-cycle_span}-{cycle-1}"
 
     def add_writeback(self, id:str, cycle:int):
         # Writeback cycle to the timetable
@@ -87,6 +87,17 @@ class timetable():
         else:
             self.table[row_index][self.commit_loc] = cycle 
 
+    def add_store_commit(self, id:str, cycle:int, cycle_span:int):
+        # Writes the commit cycle for a store instruction into the table
+        # This method is only called when a succesful commit occurs (or should be anyway)
+
+        row_index = self.getrowindexfromID(id)
+
+        # Cannot commit on the same cycle as we writeback - problem with sequential software - offset by 1 to show this
+        if self.table[row_index][self.writeback_loc] == cycle:
+            self.table[row_index][self.commit_loc] = cycle + 1
+        else:
+            self.table[row_index][self.commit_loc] = f"{cycle-cycle_span}-{cycle-1}"
 
     def __str__(self):
         # Pretty table format
