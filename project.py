@@ -26,6 +26,7 @@ load_store_rs = []
 cdb = CommonDataBus(1)
 rat = []
 load_store_queue = []
+cdb_queue = []
 
 # These get passed to writeback stage
 values          = []
@@ -95,6 +96,7 @@ def initalize():
     
 
 def output():
+    global Memory, int_rs
 
     print(Instruction_Buffer)
     
@@ -113,7 +115,8 @@ def output():
 
     for rs in int_rs:
         print(rs)
-    print(fp_adder_rs)
+    for rs in fp_adder_rs:
+        print(rs)
     print(fp_mult_rs)
     # print(load_store_rs)
     for rs in load_store_rs:
@@ -409,12 +412,22 @@ def write():
     # Values[n][0] is the entries' data
     # Values[n][1] is the entries' instruction id
 
-    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs, cdb
+    global Int_Registers, int_rs, rat, Float_Registers, fp_adder_rs, fp_mult_rs, load_store_rs, cdb, cdb_queue
 
     # Update these variables later
     writeBack = False
     writeback_instruction_id = None
 
+    # Experimental
+
+    for value in values:
+        if value[0] is not None and value[1] is not None:
+            cdb_queue.append(value)
+    if mem_value:
+        if mem_value[0] is not None and mem_value[1] is not None and mem_value[2] == 'Ld':
+            cdb_queue.append(mem_value)
+
+    #print(cdb_queue)
     # Broadcast on CDB
     # TODO -------------------------------------------------------- 
     # CDB should be updated
@@ -427,25 +440,25 @@ def write():
     # Checking if load/store forwarding occured
     if cdb.hasData():
         writeBack = True
-
-
-    #TODO ---------------------------------------------------------
-    #  we really shouldnt have this control loop right here - at most we will only every writeback one instruction
-    # Our buffer has varying size, but we only ever writeback one instruction. Can discuss
-    for value in values:
-        result = value[0]
-        cdb_instruction_id = value[1]
-
-        # if there is data to broadcast
-        if result != None and cdb_instruction_id != None:
-            writeBack = True
-            cdb.broadcast(result, cdb_instruction_id)
-            rob.markComplete(cdb_instruction_id)
-    if mem_value:
-        if mem_value[0] != None and mem_value[1] != None:
-            if "Ld" in mem_value[2]:
-                cdb.broadcast(mem_value[0], mem_value[1])
-                rob.markComplete(mem_value[1])
+    else:
+        #TODO ---------------------------------------------------------
+        #  we really shouldnt have this control loop right here - at most we will only every writeback one instruction
+        # Our buffer has varying size, but we only ever writeback one instruction. Can discuss
+        for idx, value in enumerate(cdb_queue):
+            result = value[0]
+            cdb_instruction_id = value[1]
+            # if there is data to broadcast
+            if result != None and cdb_instruction_id != None:
+                writeBack = True
+                if cdb.broadcast(result, cdb_instruction_id):
+                    rob.markComplete(cdb_instruction_id)
+                    cdb_queue.pop(idx)
+                    
+        # if mem_value:
+        #     if mem_value[0] != None and mem_value[1] != None:
+        #         if "Ld" in mem_value[2]:
+        #             cdb.broadcast(mem_value[0], mem_value[1])
+        #             rob.markComplete(mem_value[1])
 
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():

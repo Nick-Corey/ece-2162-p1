@@ -189,7 +189,8 @@ class LD_SD():
                     inst = (inst[0], inst[1], inst[2] + 1, inst[3], inst[4])
                     self.mem_buffer[x] = inst
                     if (inst[2] == self.mem_cycles):
-                        return_value = memory[int(inst[0])]
+                        # Double check if should be divided by 4
+                        return_value = memory[int(inst[0] / 4)]
                         rs_num = inst[1]
                         self.mem_buffer.pop(x)
                         return (return_value, rs_num, inst[3])
@@ -200,7 +201,7 @@ class LD_SD():
                     inst = (inst[0], inst[1], inst[2] + 1, inst[3], inst[4])
                     self.mem_buffer[x] = inst
                     if (inst[2] == self.mem_cycles):
-                        memory[int(inst[0])] = inst[4]
+                        memory[int(inst[0] / 4)] = inst[4]
                         rs_num = inst[1]
                         self.mem_buffer.pop(x)
                         return (memory, rs_num, inst[3])
