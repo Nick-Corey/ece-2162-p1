@@ -3,7 +3,7 @@
         "operations" : [
             {
                 "name" : "Integer Adder",
-                "reservation_station_num" : 3,
+                "reservation_station_num" : 2,
                 "EX cycles" : 1,
                 "mem_cycles" :  0,
                 "FUs" : 1
