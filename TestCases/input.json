@@ -71,15 +71,19 @@
             },
             {
                 "name" : "F2",
-                "value" : 4.2
+                "value" : 0.0
             },
             {
                 "name" : "F1",
-                "value" : 43.0
+                "value" : 0.0
             },
             {
                 "name" : "F3",
                 "value" : 1.1
+            },
+            {
+                "name" : "F4",
+                "value" : 0.0
             }
         ],
         "Memory" : [
@@ -101,16 +105,16 @@
             }
         ],
         "Instructions" : [
+            { "value" : "Addi R1, R1, 3"},
+            { "value" : "Addi R2, R2, 5"},
+            { "value" : "Addi R3, R3, 7"},
             { "value" : "NOP"},
-            { "value" : "Add R1, R1, R2"},
-            { "value" : "Addi R2, R2, 3"},
-            { "value" : "Add R3, R2, R1"},
             { "value" : "Mult.d F1, F3, F3"},
-            { "value" : "Add R3, R2, R1"},
-            { "value" : "Addi R3, R3, 3"},
-            { "value" : "Sub R1, R3, R2"},
-            { "value" : "Add.d F3, F2, F1"},
-            { "value" : "Mult.d F1, F3, F3"}
+            { "value" : "NOP"},
+            { "value" : "Mult.d F2, F3, F3"},
+            { "value" : "Addi R4, R4, 7"},
+            { "value" : "Sub.d F4, F3, F3"},
+            { "value" : "NOP"}
         ]
     }
 }
