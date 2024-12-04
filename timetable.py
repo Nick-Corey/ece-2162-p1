@@ -17,6 +17,7 @@ class timetable():
 
     # Dynamic Counter for num of instructions
     count           = 0
+    table           = np.zeros(0)
 
     def __init__(self):
         # Empty Constructor - only exists so we can init structure globally before knowing size values
@@ -24,10 +25,15 @@ class timetable():
 
     def resize(self, num_entries:int):
         # Must init somewhere but we dont know the size, use this once we do know the size
-        self.table = np.zeros((num_entries, self.entry_size), dtype=object)
 
-        # Set all memory stage to default NA (~)
-        self.table[:, self.mem_loc] = "~"
+        # Use this when first initializing
+        if len(self.table) == 0:
+            self.table = np.zeros((num_entries, self.entry_size), dtype=object)
+            self.table[:, self.mem_loc] = "~"  # Set all memory stage to default NA (~)
+        # Use this condition when reformatting for nice printing
+        else:
+            self.table = np.resize(self.table, [num_entries, self.entry_size])
+
         
     def getrowindexfromID(self, id:str):
         # Return the row number that pairs with an instruction id and return the index
