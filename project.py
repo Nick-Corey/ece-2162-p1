@@ -16,7 +16,6 @@ int_rs_size = 0
 fp_adder_rs_size = 0
 fp_mult_rs_size = 0
 load_store_rs_size = 0
-
 int_rs = []
 fp_adder_rs = []
 fp_mult_rs = []
@@ -39,6 +38,11 @@ timeTable = timetable()
 
 # Create ROB
 rob = ReorderBuffer()
+
+# Program counter and program storage in memory
+total_instructions = 0 # Used for nice formatting of time table
+PC = 0
+instruction_memory = []
 
 # Creating headers for Output tables
 Int_Registers_Names = [''] * 32
@@ -84,10 +88,11 @@ def initalize():
                 load_store_rs_size = operation['reservation_station_num']
                 LD_SD_fu = LD_SD(operation['EX cycles'], operation['mem_cycles'], operation['FUs'])
         for instruction in specs["specifications"]["Instructions"]:
-            Instruction_Buffer.append(instruction["value"])
+            instruction_memory.append(instruction["value"])
+            #Instruction_Buffer.append(instruction["value"])
 
         #Initalize Time Table
-        timeTable.resize(len(Instruction_Buffer))
+        timeTable.resize(1000)
 
         #Initalize ROB to correct size
         rob.resize(specs["specifications"]["ROB entries"])
@@ -96,7 +101,8 @@ def initalize():
     
 
 def output():
-    global Memory, int_rs
+    global Memory, int_rs, timeTable, total_instructions
+
 
     print(Instruction_Buffer)
     
@@ -123,14 +129,23 @@ def output():
         print(rs)
     print(rat)
 
+    # Print timetable
+    timeTable.resize(total_instructions)
+    print(timeTable)
+
 # RS are currently dyanically pushed and popped into a list
 # in order to create a value which can allow an RS to be referenced
 # I am using the cycle number... This may need to be change later 
 def issue():
-    global int_rs, fp_adder_rs
+    global int_rs, fp_adder_rs, PC, instruction_memory, total_instructions
     instruction_type = ""
     value1 = None
     value2 = None
+
+    # Load instruction from memory and place onto instruction buffer for issuing
+    if PC < len(instruction_memory):
+        Instruction_Buffer.append(instruction_memory[PC])
+        PC = PC + 1 # Increment program counter
 
     # If no instructions left - nothing to issue - exit
     if not Instruction_Buffer:
@@ -271,6 +286,8 @@ def issue():
 
     # Insert Instruction into the ROB
     rob.insert(rs.id)
+    # Add to counter for table resizing later
+    total_instructions = total_instructions + 1
 
     # Add issued instruction to the time table
     timeTable.add_instruction(rs.id, instruction, i)
@@ -685,4 +702,3 @@ if __name__ == "__main__":
         i = i + 1
 
     output()
-    print(timeTable)
