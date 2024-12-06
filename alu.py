@@ -11,8 +11,9 @@ class Int_adder():
         vj = rs.vj
         vk = rs.vk
         id = rs.id
-        # What is the zero???
-        self.buffer.append((operation, vj, vk, 0, id))
+        # a is for branch instructions exclusively
+        a = rs.a
+        self.buffer.append((operation, vj, vk, 0, id, a))
         return
 
     def check_if_space(self):
@@ -25,9 +26,12 @@ class Int_adder():
     def cycle(self):
         return_value = None
         rs_num = None
+        address = None
         for i, inst in enumerate(self.buffer):
-            inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4])
+            inst = (inst[0], inst[1], inst[2], inst[3] + 1, inst[4], inst[5])
             self.buffer[i] = inst
+            # For branch instructions
+            address = inst[5]
             if (inst[3] == self.exec_cycles):
                 if 'Add' in inst[0]:
                     return_value = inst[1] + inst[2]
@@ -37,12 +41,22 @@ class Int_adder():
                     return_value = inst[1] - inst[2]
                     rs_num = inst[4]
                     self.buffer.pop(i)
+                elif 'Beq' in inst[0]:
+                    return_value = (inst[1] == inst[2])
+                    rs_num = inst[4]
+                    self.buffer.pop(i)
+                elif 'Bne' in inst[0]:
+                    return_value = (inst[1] != inst[2])
+                    rs_num = inst[4]
+                    self.buffer.pop(i)
                 else:
-                    #Branch inststructions?
                     #return_value = None
                     #rs_num = None
                     pass
-        return (return_value, rs_num)
+        if address is not None:
+            return (return_value, rs_num, address)
+        else:
+            return (return_value, rs_num)
 
 class FP_Adder():
 

@@ -148,7 +148,7 @@ def issue():
         PC = PC + 1 # Increment program counter
 
     # If no instructions left - nothing to issue - exit
-    if not Instruction_Buffer:
+    if not Instruction_Buffer or len(Instruction_Buffer) == 0:
         return
 
     # Get next instruction for Instruction Buffers
@@ -187,7 +187,13 @@ def issue():
         else:
             # Stall?
             return
-    # TODO: Branch instructions & Store Instructions
+    elif "Beq" in operation or "Bne" in operation:
+        instruction_type = "br"
+        if len(int_rs) < int_rs_size:
+            rs = reservation_station.Reservation_Station("AI", i)
+        else:
+            # Stall?
+            return
 
     # Get Destination Register
     destination = instruction_parts[1]
@@ -195,7 +201,7 @@ def issue():
     # Read Operands from Register File
     operand1 = instruction_parts[2]
 
-    if 'Ld' not in operation and 'Sd' not in operation:
+    if 'Ld' not in operation and 'Sd' not in operation and 'Bne' not in operation and 'Beq' not in operation:
         operand2 = instruction_parts[3]
 
         #Search RAT for dependencies
@@ -237,12 +243,29 @@ def issue():
             value1 = Int_Registers[int(reg[1:])] 
         if value2 is None:
             value2 = Float_Registers[int(destination[1:])] 
+    elif "Bne" in operation or "Beq" in operation:
+        operand1 = instruction_parts[1]
+        operand2 = instruction_parts[2]
+        branch_address = instruction_parts[3]
+        #Search RAT for dependencies
+        for entry in rat:
+            if operand1 in entry[0]:
+                value1 = entry[1]
+            if operand2 in entry[0]:
+                value2 = entry[1]
+
+        if value1 is None:
+            value1 = Int_Registers[int(operand1[1:])] 
+        if value2 is None:
+            value2 = Int_Registers[int(operand2[1:])]
+
     # Record Source of other operands
 
     # TODO: Might need to add logic for duplicate RAT entries (WAW)
     # Update source mapping (RAT)
     # (destination, rs_num)
-    rat.append((destination, rs.id))
+    if 'br' not in instruction_type:
+        rat.append((destination, rs.id))
 
     # Place values in RS
     rs.operation = operation
@@ -261,6 +284,17 @@ def issue():
         else:
             rs.vk = value2
     # Check if the value is a string or a number
+    elif 'Beq' in operation or 'Bne' in operation:
+        rs.a = branch_address
+        if type(value1) == type("value"):
+            rs.qj = value1
+        else:
+            rs.vj = value1
+        if type(value2) == type("value"):
+            rs.qk = value2
+        else:
+            rs.vk = value2
+
     else:
         # Check if the value is a string or a number
         if type(value1) == type("value"):
@@ -272,10 +306,9 @@ def issue():
         else:
             rs.vk = value2
 
-
     if "Add.d" in operation or "Sub.d" in operation:
         fp_adder_rs.append(rs)
-    elif "Add" in operation or "Sub" in operation or "Addi" in operation:
+    elif "Add" in operation or "Sub" in operation or "Addi" in operation or "Bne" in operation or "Beq" in operation:
         int_rs.append(rs)
     elif "Mult.d" in operation:
         fp_mult_rs.append(rs)
@@ -296,7 +329,7 @@ def issue():
     return
 
 def execute():
-    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu
+    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, PC
     # Execution Stage
     pass
     # Integer Reservation Stations
@@ -373,12 +406,29 @@ def execute():
 
     # compete for ALUs
 
-    # TODO: add suport for fp and ld/sd
     int_value = Int_fu.cycle()
     fp_adder_value = FP_adder_fu.cycle()
     fp_mult_value = FP_mult_fu.cycle()
     ld_sd_value = LD_SD_fu.cycle()
     # TODO: add support for CDB of multiple sizes
+
+    # Logic for branch instructions
+    # If there is a return address 
+    if len(int_value) > 2:
+
+        result = int_value[0]
+        rs_id = int_value[1]
+        address = int_value[2]
+
+        if result:
+            PC = PC + int(address)
+        
+        for idx, rs in enumerate(int_rs):
+            if rs_id in rs.id:
+                int_rs.pop(idx)
+                rob.markComplete(rs_id)
+
+        int_value = (None, None)
 
     # TODO ------------------------------------------
     # We need a method of passing finished data directly to the cdb from this stage.
@@ -658,7 +708,7 @@ def searchRS(register, value, rs_list):
                  if entry[0] == register and entry[1] == rs.qk:
                         rs.qk = None
                         rs.vk = value
-        #print(rs)
+        # print(rs)
         rs_list[idx] = rs
     return rs_list
 
@@ -697,8 +747,12 @@ if __name__ == "__main__":
         mem_value_p = memory(mem)
         write()
         commit(mem)
-        # Run as long as there are instructions to issue or instruction waiting to commit
-        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
+        # Run as long as there are instructions to issue or instruction waiting to commit or loop just moved the PC back
+        print(PC, len(instruction_memory))
+        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory))
         i = i + 1
+        # for rs in int_rs:
+        #     print(rs)
+        # print(Int_fu.buffer)
 
     output()
