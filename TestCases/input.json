@@ -39,11 +39,11 @@
             },
             {
                 "name" : "R1",
-                "value" : 3
+                "value" : 0
             },
             {
                 "name" : "R2",
-                "value" : 4
+                "value" : 5
             },
             {
                 "name" : "R3",
@@ -101,12 +101,8 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Addi R1, R1, 4"},
-            { "value" : "Addi R2, R2, 3"},
-            { "value" : "Addi R3, R3, 3"},
-            { "value" : "Addi R5, R5, 1"},
-            { "value" : "Beq R6, R5, -5"},
-            { "value" : "Addi R1, R1, 4"}
+            { "value" : "Addi R1, R1, 1"},
+            { "value" : "Bne R1, R2, -2"}
         ]
     }
 }

@@ -747,8 +747,9 @@ if __name__ == "__main__":
         mem_value_p = memory(mem)
         write()
         commit(mem)
-        # Run as long as there are instructions to issue or instruction waiting to commit
-        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty())
+        # Run as long as there are instructions to issue or instruction waiting to commit or loop just moved the PC back
+        print(PC, len(instruction_memory))
+        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory))
         i = i + 1
         # for rs in int_rs:
         #     print(rs)
