@@ -39,11 +39,11 @@
             },
             {
                 "name" : "R1",
-                "value" : 1
+                "value" : 3
             },
             {
                 "name" : "R2",
-                "value" : 5
+                "value" : 4
             },
             {
                 "name" : "R3",
@@ -55,11 +55,11 @@
             },
             {
                 "name" : "R5",
-                "value" : 8
+                "value" : 1
             },
             {
                 "name" : "R6",
-                "value" : 24
+                "value" : 2
             },
             {
                 "name" : "R7",
@@ -85,32 +85,28 @@
         "Memory" : [
             {
                 "name" : "4",
-                "value" : "1"
+                "value" : "0"
             },
             {
                 "name" : "8",
-                "value" : "2"
+                "value" : "0"
             },
             {
                 "name" : "12",
-                "value" : "3.4"
+                "value" : "0"
             },       
             {
                 "name" : "16",
-                "value" : "5.0"
+                "value" : "0"
             }
         ],
         "Instructions" : [
-            { "value" : "Add.d F4, F1, F1"},
-            { "value" : "Sub.d F5, F3, F4"},
-            { "value" : "Sub.d F6, F2, F4"},
-            { "value" : "Add.d F7, F3, F2"},
-            { "value" : "Sub.d F8, F3, F2"},
-            { "value" : "Add R4, R1, R2"},
-            { "value" : "Add R5, R4, R3"},
-            { "value" : "Add R6, R5, R4"},
-            { "value" : "Ld F9, 0(R7)"},
-            { "value" : "Ld F10, 0(R7)"}
+            { "value" : "Addi R1, R1, 4"},
+            { "value" : "Addi R2, R2, 3"},
+            { "value" : "Addi R3, R3, 3"},
+            { "value" : "Addi R5, R5, 1"},
+            { "value" : "Beq R6, R5, -5"},
+            { "value" : "Addi R1, R1, 4"}
         ]
     }
 }
