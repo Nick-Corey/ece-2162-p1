@@ -28,7 +28,7 @@ class timetable():
 
         # Use this when first initializing
         if len(self.table) == 0:
-            self.table = np.zeros((num_entries, self.entry_size), dtype=object)
+            self.table = np.full((num_entries, self.entry_size), "~", dtype=object)
             self.table[:, self.mem_loc] = "~"  # Set all memory stage to default NA (~)
         # Use this condition when reformatting for nice printing
         else:
@@ -80,7 +80,7 @@ class timetable():
 
         row_index = self.getrowindexfromID(id)
         self.table[row_index][self.writeback_loc] = cycle
-
+            
     def add_commit(self, id:str, cycle:int):
         # Writes the commit cycle for an instruction into the table
         # This method is only called when a succesful commit occurs (or should be anyway)
@@ -105,7 +105,15 @@ class timetable():
         else:
             self.table[row_index][self.commit_loc] = f"{cycle-cycle_span}-{cycle-1}"
 
+    def remove(self, id:str):
+        # Removes a row from the timetable
+        # Intended to be used when correcting a misprediction
+
+        row_index = self.getrowindexfromID(id)
+        self.table = np.delete(self.table, row_index, axis=0)
+
     def __str__(self):
         # Pretty table format
         headers = ["ID", "Instruction", "Issue", "Execute", "Memory", "Writeback", "Commit"]
         return(tabulate(self.table, headers, tablefmt="simple_grid"))
+    

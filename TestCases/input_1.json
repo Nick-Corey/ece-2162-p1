@@ -1,0 +1,116 @@
+{
+    "specifications" : {
+        "operations" : [
+            {
+                "name" : "Integer Adder",
+                "reservation_station_num" : 2,
+                "EX cycles" : 1,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "FP Adder",
+                "reservation_station_num" : 3,
+                "EX cycles" : 3,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "FP Multiplier",
+                "reservation_station_num" : 2,
+                "EX cycles" : 20,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "Load/Store Unit",
+                "reservation_station_num" : 3,
+                "EX cycles" : 1,
+                "mem_cycles" : 4,
+                "FUs" : 1
+            }
+        ],
+        "ROB entries" : 128,
+        "CDB Buffer Entries" : 1,
+        "Registers" : [
+            {
+                "name" : "R0",
+                "value" : 0
+            },
+            {
+                "name" : "R1",
+                "value" : 0
+            },
+            {
+                "name" : "R2",
+                "value" : 5
+            },
+            {
+                "name" : "R3",
+                "value" : 10
+            },
+            {
+                "name" : "R4",
+                "value" : 6
+            },
+            {
+                "name" : "R5",
+                "value" : 1
+            },
+            {
+                "name" : "R6",
+                "value" : 2
+            },
+            {
+                "name" : "R7",
+                "value" : 12
+            },
+            {
+                "name" : "R8",
+                "value" : 3
+            },
+            {
+                "name" : "F2",
+                "value" : 5.5
+            },
+            {
+                "name" : "F1",
+                "value" : 1.5
+            },
+            {
+                "name" : "F3",
+                "value" : 7.5
+            }
+        ],
+        "Memory" : [
+            {
+                "name" : "4",
+                "value" : "0"
+            },
+            {
+                "name" : "8",
+                "value" : "0"
+            },
+            {
+                "name" : "12",
+                "value" : "0"
+            },       
+            {
+                "name" : "16",
+                "value" : "0"
+            }
+        ],
+        "Instructions" : [
+            { "value" : "Addi R1, R1, 3"},
+            { "value" : "Addi R2, R2, 5"},
+            { "value" : "Addi R3, R3, 7"},
+            { "value" : "NOP"},
+            { "value" : "Mult.d F1, F3, F3"},
+            { "value" : "NOP"},
+            { "value" : "Mult.d F2, F3, F3"},
+            { "value" : "Addi R4, R4, 7"},
+            { "value" : "Sub.d F4, F3, F3"},
+            { "value" : "NOP"}
+        ]
+    }
+}
