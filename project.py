@@ -172,8 +172,6 @@ def issue():
     value1 = None
     value2 = None
 
-    print('PC: ', PC)
-    print(Instruction_Buffer)
     mispredict = False
 
     # Load instruction from memory and place onto instruction buffer for issuing
@@ -379,7 +377,6 @@ def issue():
         # Use branch predictor to predict result of branchinstruction
         bp.addBTB(instruction, PC-1)
         prediction = bp.predict(int(PC-1))
-        print('prediction:', prediction, PC-1)
         bp.addHistory(rs.id, prediction)
         if prediction:
             # Copy RS, RAT, RF, etc
@@ -535,34 +532,28 @@ def execute():
             else:
                 # Update PC to execute branch instruction
                 PC = PC-1 + int(address)
-                print(PC)
                 # Update branch predictor    
                 bp.updatePrediction(1, False)
-                print(bp.bp)
         else:
             taken = bp.searchHistory(rs_id)
             if taken:
-                print('before \n' ,rob)
-                PC = PC_Copy
-                print('MISPREDICT:', PC_Copy)
-                int_rs = int_rs_copy
-                fp_adder_rs = fp_adder_rs_copy
-                fp_mult_rs = fp_mult_rs_copy
-                load_store_rs = load_store_rs_copy
-                rat = rat_copy
-                Int_Registers = Int_Registers_Copy
-                Float_Registers = Float_Registers_Copy
+                PC = copy.deepcopy(PC_Copy)
+                int_rs = copy.deepcopy(int_rs_copy)
+                fp_adder_rs = copy.deepcopy(fp_adder_rs_copy)
+                fp_mult_rs = copy.deepcopy(fp_mult_rs_copy)
+                load_store_rs = copy.deepcopy(load_store_rs_copy)
+                rat = copy.deepcopy(rat_copy)
+                Int_Registers = copy.deepcopy(Int_Registers_Copy)
+                Float_Registers = copy.deepcopy(Float_Registers_Copy)
                 PC_Copy = PC-1
                 Instruction_Buffer = []
                 total_instructions = total_instructions - 1
-                timeTable = timeTable_Copy
-                rob = rob_copy
+                timeTable = copy.deepcopy(timeTable_Copy)
+                rob = copy.deepcopy(rob_copy)
                 mispredict = True
 
                 # Update branch predictor    
                 bp.updatePrediction(1, False)
-
-                print('after \n', rob)
 
             pass
         

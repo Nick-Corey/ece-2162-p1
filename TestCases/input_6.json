@@ -104,9 +104,7 @@
             { "value" : "Addi R1, R1, 1"},
             { "value" : "Beq R1, R2, 1"},
             { "value" : "Bne R1, R2, -3"},
-            { "value" : "Addi R1, R1, 1"},
-            { "value" : "Beq R1, R2, 1"},
-            { "value" : "Add R3, R3, R1"}
+            { "value" : "Addi R1, R1, 1"}
         ]
     }
 }
