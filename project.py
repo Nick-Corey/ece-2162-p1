@@ -1,13 +1,15 @@
 import json
 import numpy as np
+import copy
 from tabulate import tabulate
 import reservation_station
 from alu import Int_adder, FP_Adder, FP_Mult, LD_SD, NOP
 from cdb import CommonDataBus
 from timetable import timetable
 from reorderbuffer import ReorderBuffer
+from branchpredictor import BranchPredictor
 
-input_file = 'input_2.json'
+input_file = 'input_6.json'
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -42,6 +44,22 @@ timeTable = timetable()
 
 # Create ROB
 rob = ReorderBuffer()
+
+# Create Branch Predictor
+bp = BranchPredictor()
+
+# Copies for BP
+int_rs_copy = []
+fp_adder_rs_copy = []
+fp_mult_rs_copy = []
+load_store_rs_copy = []
+rat_copy = []
+Int_Registers_Copy = []
+Float_Registers_Copy = []
+PC_Copy = 0
+rob_copy = None
+timeTable_Copy = None
+mispredict = False
 
 # Program counter and program storage in memory
 total_instructions = 0 # Used for nice formatting of time table
@@ -102,6 +120,9 @@ def initalize():
         #Initalize ROB to correct size
         rob.resize(specs["specifications"]["ROB entries"])
 
+        #Initialize Branch Predictor
+        bp.initializePredictions(instruction_memory)
+
     return
     
 
@@ -144,9 +165,16 @@ def output():
 # I am using the cycle number... This may need to be change later 
 def issue():
     global int_rs, fp_adder_rs, PC, instruction_memory, total_instructions
+    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, nop_rs, fp_mult_rs, load_store_rs, Nop_fu, PC, bp, Instruction_Buffer, total_instructions, rat, Int_Registers, Float_Registers
+    global int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, mispredict, timeTable, timeTable_Copy
+
     instruction_type = ""
     value1 = None
     value2 = None
+
+    print('PC: ', PC)
+    print(Instruction_Buffer)
+    mispredict = False
 
     # Load instruction from memory and place onto instruction buffer for issuing
     if PC < len(instruction_memory):
@@ -346,10 +374,45 @@ def issue():
     timeTable.add_instruction(rs.id, instruction, i)
     Instruction_Buffer.pop(0)
 
+    # Branch predictor:
+    if 'Beq' in operation or 'Bne' in operation:
+        # Use branch predictor to predict result of branchinstruction
+        bp.addBTB(instruction, PC-1)
+        prediction = bp.predict(int(PC-1))
+        print('prediction:', prediction, PC-1)
+        bp.addHistory(rs.id, prediction)
+        if prediction:
+            # Copy RS, RAT, RF, etc
+            # May want to append to list?
+            int_rs_copy = copy.deepcopy(int_rs)
+            fp_adder_rs_copy = copy.deepcopy(fp_adder_rs)
+            fp_mult_rs_copy = copy.deepcopy(fp_mult_rs)
+            load_store_rs_copy = copy.deepcopy(load_store_rs)
+            rat_copy = copy.deepcopy(rat)
+            Int_Registers_Copy = copy.deepcopy(Int_Registers)
+            Float_Registers_Copy = copy.deepcopy(Float_Registers)
+            PC_Copy = PC-1
+            rob_copy = copy.deepcopy(rob)
+                                     
+            timeTable_Copy = copy.deepcopy(timeTable)
+
+            # Update PC
+            # Not sure if it should be PC or PC-1
+            new_pc = (PC-1) + int(branch_address)
+            PC = new_pc
+
+
+        else:
+            # Do thing
+            pass
+
     return
 
 def execute():
-    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, nop_rs, Nop_fu, PC
+    global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, nop_rs, fp_mult_rs, load_store_rs, Nop_fu, PC, bp, Instruction_Buffer, total_instructions, rat, Int_Registers, Float_Registers, timeTable, rob
+    global int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, mispredict, timeTable_Copy
+
+    
     # Execution Stage
     pass
 
@@ -460,12 +523,56 @@ def execute():
         address = int_value[2]
 
         if result:
-            PC = PC + int(address)
+            #Update Predictor    
+            # x = bp.getBTB(PC-1)
+            # print('btb value: ', x)
+            # print(PC, bp.btb)
+
+            # Check if the branch predictor was correct and adjust accordingly
+            taken = bp.searchHistory(rs_id)
+            if taken:
+                pass
+            else:
+                # Update PC to execute branch instruction
+                PC = PC-1 + int(address)
+                print(PC)
+                # Update branch predictor    
+                bp.updatePrediction(1, False)
+                print(bp.bp)
+        else:
+            taken = bp.searchHistory(rs_id)
+            if taken:
+                print('before \n' ,rob)
+                PC = PC_Copy
+                print('MISPREDICT:', PC_Copy)
+                int_rs = int_rs_copy
+                fp_adder_rs = fp_adder_rs_copy
+                fp_mult_rs = fp_mult_rs_copy
+                load_store_rs = load_store_rs_copy
+                rat = rat_copy
+                Int_Registers = Int_Registers_Copy
+                Float_Registers = Float_Registers_Copy
+                PC_Copy = PC-1
+                Instruction_Buffer = []
+                total_instructions = total_instructions - 1
+                timeTable = timeTable_Copy
+                rob = rob_copy
+                mispredict = True
+
+                # Update branch predictor    
+                bp.updatePrediction(1, False)
+
+                print('after \n', rob)
+
+            pass
         
         for idx, rs in enumerate(int_rs):
             if rs_id in rs.id:
                 int_rs.pop(idx)
                 rob.markComplete(rs_id)
+
+        #Update Predictor
+        
 
         int_value = (None, None)
 
@@ -686,7 +793,7 @@ def write():
     return
 
 def commit(mem_value):
-    global load_store_rs, LD_SD_fu, Float_Registers, Memory, load_store_queue, cdb, timeTable
+    global load_store_rs, LD_SD_fu, Float_Registers, Memory, load_store_queue, cdb, timeTable, mispredict
     #Store instruction
 
     if mem_value[0] != None and mem_value[1] != None and mem_value[2] == "Sd":
@@ -799,6 +906,9 @@ if __name__ == "__main__":
         # Run as long as there are instructions to issue or instruction waiting to commit or loop just moved the PC back
         stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory))
         i = i + 1
+        if i > 20:
+            break
+
 
 
     output()

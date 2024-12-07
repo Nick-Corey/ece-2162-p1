@@ -101,16 +101,8 @@
             }
         ],
         "Instructions" : [
-            { "value" : "Addi R1, R1, 3"},
-            { "value" : "Addi R2, R2, 5"},
-            { "value" : "Addi R3, R3, 7"},
-            { "value" : "NOP"},
-            { "value" : "Mult.d F1, F3, F3"},
-            { "value" : "NOP"},
-            { "value" : "Mult.d F2, F3, F3"},
-            { "value" : "Addi R4, R4, 7"},
-            { "value" : "Sub.d F4, F3, F3"},
-            { "value" : "NOP"}
+            { "value" : "Addi R1, R1, 1"},
+            { "value" : "Bne R1, R2, -1"}
         ]
     }
 }
