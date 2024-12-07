@@ -20,4 +20,4 @@ class Reservation_Station():
         self.id = type + str(num)
 
     def __str__(self):
-        return f'({self.busy}, {self.operation}, {self.vj}, {self.vk}, {self.qj}, {self.qk}, {self.a})' 
+        return f'({self.busy}, {self.operation}, {self.vj}, {self.vk}, {self.qj}, {self.qk}, {self.a}, {self.id})' 

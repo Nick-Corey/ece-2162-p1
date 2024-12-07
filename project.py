@@ -582,7 +582,6 @@ def write():
 
         # If Integer Add -------------------------------------
         if 'AI' in cdb_instruction_id:
-
             #Free Reservation Station
             for x, rs in enumerate(int_rs):
                 if rs.id == cdb_instruction_id:
@@ -599,9 +598,9 @@ def write():
                             reg = register_name
                             # Its these functions here - they are replacing when shouldnt
                             # Intruction id  AI3 and rs.id == AI3 but it replaces value in AI5 reservation station
-                            int_rs = searchRS(reg, result, int_rs)
-                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
-                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
+                            int_rs = searchRS(rs.id, result, int_rs)
+                            fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = result
                     int_rs.pop(x)
@@ -622,8 +621,8 @@ def write():
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
-                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
+                            fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     fp_adder_rs.pop(x)
@@ -643,8 +642,8 @@ def write():
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
-                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
+                            fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     fp_mult_rs.pop(x)
@@ -663,8 +662,8 @@ def write():
 
                         if instruction_id == rs.id:
                             reg = register_name
-                            fp_mult_rs = searchRS(reg, result, fp_mult_rs)
-                            fp_adder_rs = searchRS(reg, result, fp_adder_rs)
+                            fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
+                            fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                     load_store_rs.pop(x)
@@ -745,19 +744,20 @@ def commit(mem_value):
         timeTable.add_commit(instruction_id, i+1)
 
 
-def searchRS(register, value, rs_list):
+def searchRS(id, value, rs_list):
+
     for idx, rs in enumerate(rs_list):
         if rs.qj is not None:
             for entry in rat:
-                 if entry[0] == register and entry[1] == rs.qj:
+                 if entry[1] == id and entry[1] == rs.qj:
                         rs.qj = None
                         rs.vj = value
         if rs.qk is not None:
             for entry in rat:
-                 if entry[0] == register and entry[1] == rs.qk:
+                 if entry[1] == id and entry[1] == rs.qk:
                         rs.qk = None
                         rs.vk = value
-        # print(rs)
+        
         rs_list[idx] = rs
     return rs_list
 
