@@ -7,6 +7,8 @@ from cdb import CommonDataBus
 from timetable import timetable
 from reorderbuffer import ReorderBuffer
 
+input_file = 'input_2.json'
+
 # Create Memory and Register arrays
 Memory = [0] * 32
 Int_Registers = [0] * 32
@@ -56,7 +58,7 @@ while i < 32:
 def initalize():
     global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size
     # Open test case file
-    with open("TestCases/input.json") as test_file:
+    with open(f"TestCases/{input_file}") as test_file:
         specs = json.load(test_file)
         # Read in parameters for memory initlization and initialize
         for mem in specs["specifications"]["Memory"]:
@@ -152,7 +154,7 @@ def issue():
         return
 
     # Get next instruction for Instruction Buffers
-    instruction = Instruction_Buffer[0]
+    instruction = Instruction_Buffer[0].capitalize()
     instruction = instruction.replace(",", "")
     instruction_parts = instruction.split(" ")
 
@@ -400,12 +402,7 @@ def execute():
         # Record execution in timetable
         timeTable.add_execution(rs.id, i, LD_SD_fu.exec_cycles)
 
-    # Monitor Results from ALUs
-
-    # Capture matching operands
-
-    # compete for ALUs
-
+    # Cycle functional units
     int_value = Int_fu.cycle()
     fp_adder_value = FP_adder_fu.cycle()
     fp_mult_value = FP_mult_fu.cycle()
@@ -414,6 +411,12 @@ def execute():
 
     # Logic for branch instructions
     # If there is a return address 
+
+    # When doing branches use timeTable.remove to remove mispredicted entry row in the table
+    # Make sure to decrement the instruction counter, total_instructions = total_instructions - 1
+    # We must delay a cycle as well and clean bad values
+    # So when we take a branch - make a copy of registers, reservation stations, etc so that we can rollback
+    # We can undo some values with logic or we can take a snap shot of everything and rollback (cant snapshot everything in hardware, but probably easier to implement in software)
     if len(int_value) > 2:
 
         result = int_value[0]
@@ -430,11 +433,6 @@ def execute():
 
         int_value = (None, None)
 
-    # TODO ------------------------------------------
-    # We need a method of passing finished data directly to the cdb from this stage.
-    # Should not return anything from the execute function - more comments in main loop
-    # CDB buffer can have dynamic number of elements, but we must have a condition to make sure it has space
-    # Additionally we must also have some way of checking if there is enough space in FU and its buffer before we pass the data to begin executing
 
     return [int_value, fp_adder_value, fp_mult_value], ld_sd_value
 
@@ -548,8 +546,11 @@ def write():
                         register_name = entry[0]
                         instruction_id = entry[1]
 
+                        # This is writing back when it should not be - must find why - check debug when i=6
                         if instruction_id == rs.id:
                             reg = register_name
+                            # Its these functions here - they are replacing when shouldnt
+                            # Intruction id  AI3 and rs.id == AI3 but it replaces value in AI5 reservation station
                             int_rs = searchRS(reg, result, int_rs)
                             fp_mult_rs = searchRS(reg, result, fp_mult_rs)
                             fp_adder_rs = searchRS(reg, result, fp_adder_rs)
@@ -678,7 +679,7 @@ def commit(mem_value):
 
                     if commit_success and instruction_id is not None:
                         # Must offset cycle since they technically execute in sequential order here but not in actuality
-                        timeTable.add_store_commit(instruction_id, i+2, LD_SD_fu.mem_cycles)
+                        timeTable.add_store_commit(instruction_id, i+1, LD_SD_fu.mem_cycles)
 
                     # Needs to be able to access several hardware components, might be able to clean this up
                     load_store_rs, load_store_queue, cdb, timeTable = loadStoreForwarding(rs.a, rs.vj ,rs.vk, load_store_rs, load_store_queue, cdb, rob, timeTable)
@@ -693,7 +694,7 @@ def commit(mem_value):
     # If committed then update table -- If not, nothing occurs
     if commit_success and instruction_id is not None:
         # Must offset cycle since they technically execute in sequential order here but not in actuality
-        timeTable.add_commit(instruction_id, i+2)
+        timeTable.add_commit(instruction_id, i+1)
 
 
 def searchRS(register, value, rs_list):
