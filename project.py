@@ -9,7 +9,7 @@ from timetable import timetable
 from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
-input_file = 'input_1.json'
+input_file = 'input_2.json'
 
 # Create Memory and Register arrays
 Memory = [0] * 32

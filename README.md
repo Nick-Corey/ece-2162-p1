@@ -8,13 +8,15 @@
         *Change Instruction 7 execution cycle from 27-46 to 26-45 and all the following instructions*
         *Change Final F4 value to 0*
 
-2) Test Case 2 - Okay 
+2) Test Case 2 - adjustments needed
         do we wait until the entire store commit has finished before starting the next commit?
         We were pipelined them in the report and that seemed okay but Its not like that now for some reason
         The LD/SD code commits on the last cycle instead of the first so this would need to retroactively be changed since the ROB will block next instruction
         Can make it like report if we commit on first cycle instead of last and clear ROB but idk - I think this is okay - design choice...
 
         LD memory stage takes forver to occur but this okay since we have the load store queue setup so it is different than the project report
+
+        *Change F1 final to 51.84*
 
 3) Test Case 3 -
 
