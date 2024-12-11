@@ -103,7 +103,7 @@ class timetable():
         if self.table[row_index][self.writeback_loc] == cycle:
             self.table[row_index][self.commit_loc] = cycle + 1
         else:
-            self.table[row_index][self.commit_loc] = f"{cycle-cycle_span}-{cycle-1}"
+            self.table[row_index][self.commit_loc] = f"{cycle-cycle_span+1}-{cycle}"
 
     def remove(self, id:str):
         # Removes a row from the timetable
@@ -111,6 +111,11 @@ class timetable():
 
         row_index = self.getrowindexfromID(id)
         self.table = np.delete(self.table, row_index, axis=0)
+
+    def getRow(self, id:str):
+        # Returns a row
+        row_index = self.getrowindexfromID(id)
+        return self.table[row_index]
 
     def __str__(self):
         # Pretty table format

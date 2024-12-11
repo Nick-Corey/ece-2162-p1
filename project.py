@@ -9,7 +9,7 @@ from timetable import timetable
 from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
-input_file = 'input_6.json'
+input_file = 'input_1.json'
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -125,7 +125,6 @@ def initalize():
 
     return
     
-
 def output():
     global Memory, int_rs, timeTable, total_instructions
 
@@ -160,9 +159,6 @@ def output():
     timeTable.resize(total_instructions)
     print(timeTable)
 
-# RS are currently dyanically pushed and popped into a list
-# in order to create a value which can allow an RS to be referenced
-# I am using the cycle number... This may need to be change later 
 def issue():
     global int_rs, fp_adder_rs, PC, instruction_memory, total_instructions
     global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, nop_rs, fp_mult_rs, load_store_rs, Nop_fu, PC, bp, Instruction_Buffer, total_instructions, rat, Int_Registers, Float_Registers
@@ -407,7 +403,6 @@ def execute():
     global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, nop_rs, fp_mult_rs, load_store_rs, Nop_fu, PC, bp, Instruction_Buffer, total_instructions, rat, Int_Registers, Float_Registers, timeTable, rob
     global int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, mispredict, timeTable_Copy
 
-    
     # Execution Stage
     pass
 
@@ -469,7 +464,7 @@ def execute():
         instruction_row = timeTable.getrowindexfromID(rs.id)
         if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
         if not (rs.busy == False and rs.vj != None and rs.vk != None)      : continue
-        if not (FP_mult_fu.check_if_space())                              : continue
+        if not (FP_mult_fu.check_if_space())                               : continue
 
         # Begin Execution
         FP_mult_fu.compute(rs)
@@ -485,8 +480,8 @@ def execute():
         # Cannot execute if functional unit is busy #TODO - pipelined!!!!!
         instruction_row = timeTable.getrowindexfromID(rs.id)
         if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
-        if not (rs.busy == False and rs.vj != None and rs.a != None)      : continue
-        if not (LD_SD_fu.check_if_space())                              : continue
+        if not (rs.busy == False and rs.vj != None and rs.a != None)       : continue
+        if not (LD_SD_fu.check_if_space())                                 : continue
 
         # Begin Execution
         LD_SD_fu.compute(rs)
@@ -776,8 +771,15 @@ def write():
     mem_value = mem_value_p[:]
 
     # Update Timetable - only if good data on CDB
+    cycle = i
     if writeBack:
-        timeTable.add_writeback(writeback_instruction_id, i)
+        #Again - double check to make sure we arent writting back before execution has finished
+        if 'LD' in writeback_instruction_id:
+            execution_end = int(timeTable.getRow(writeback_instruction_id)[4][-1])
+            if i == execution_end:
+                cycle = cycle + 1
+        # Add to timetable
+        timeTable.add_writeback(writeback_instruction_id, cycle)
 
     return
 
@@ -823,6 +825,7 @@ def commit(mem_value):
                     if commit_success and instruction_id is not None:
                         # Must offset cycle since they technically execute in sequential order here but not in actuality
                         timeTable.add_store_commit(instruction_id, i+1, LD_SD_fu.mem_cycles)
+                        return # Only one commit at a time
 
                     # Needs to be able to access several hardware components, might be able to clean this up
                     load_store_rs, load_store_queue, cdb, timeTable = loadStoreForwarding(rs.a, rs.vj ,rs.vk, load_store_rs, load_store_queue, cdb, rob, timeTable)
@@ -838,7 +841,6 @@ def commit(mem_value):
     if commit_success and instruction_id is not None:
         # Must offset cycle since they technically execute in sequential order here but not in actuality
         timeTable.add_commit(instruction_id, i+1)
-
 
 def searchRS(id, value, rs_list):
 
@@ -857,8 +859,8 @@ def searchRS(id, value, rs_list):
         rs_list[idx] = rs
     return rs_list
 
-# Loop thorugh the load store reservation stations and find RS entries with the same memory address and forward the value
 def loadStoreForwarding(address, offset ,value, rs_list, queue, cdb, rob, timeTable):
+    # Loop thorugh the load store reservation stations and find RS entries with the same memory address and forward the value
     real_address = address + offset
     for idx, rs in enumerate(rs_list):
         # Checking for load instructions
@@ -872,7 +874,6 @@ def loadStoreForwarding(address, offset ,value, rs_list, queue, cdb, rob, timeTa
                     if entry[1] == rs.id:
                         queue.pop(j)
     return rs_list, queue, cdb, timeTable
-
 
 if __name__ == "__main__":
 
