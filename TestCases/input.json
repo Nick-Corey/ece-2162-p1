@@ -102,7 +102,7 @@
         ],
         "Instructions" : [
             { "value" : "Addi R1, R1, 1"},
-            { "value" : "Bne R1, R2, -1"}
+            { "value" : "Bne R1, R2, -2"}
         ]
     }
 }

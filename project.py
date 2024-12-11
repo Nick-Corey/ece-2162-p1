@@ -388,14 +388,14 @@ def issue():
             rat_copy = copy.deepcopy(rat)
             Int_Registers_Copy = copy.deepcopy(Int_Registers)
             Float_Registers_Copy = copy.deepcopy(Float_Registers)
-            PC_Copy = PC-1
+            PC_Copy = copy.deepcopy(PC-1)
             rob_copy = copy.deepcopy(rob)
                                      
             timeTable_Copy = copy.deepcopy(timeTable)
 
             # Update PC
             # Not sure if it should be PC or PC-1
-            new_pc = (PC-1) + int(branch_address)
+            new_pc = (PC) + int(branch_address)
             PC = new_pc
 
 
@@ -531,7 +531,7 @@ def execute():
                 pass
             else:
                 # Update PC to execute branch instruction
-                PC = PC-1 + int(address)
+                PC = PC + int(address)
                 # Update branch predictor    
                 bp.updatePrediction(1, False)
         else:
@@ -545,7 +545,7 @@ def execute():
                 rat = copy.deepcopy(rat_copy)
                 Int_Registers = copy.deepcopy(Int_Registers_Copy)
                 Float_Registers = copy.deepcopy(Float_Registers_Copy)
-                PC_Copy = PC-1
+                PC = copy.deepcopy(PC_Copy)
                 Instruction_Buffer = []
                 total_instructions = total_instructions - 1
                 timeTable = copy.deepcopy(timeTable_Copy)
