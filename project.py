@@ -226,7 +226,7 @@ def issue():
         else:
             # Stall?
             return
-    elif "NOP" in operation:
+    elif "Nop" in operation:
         rs = reservation_station.Reservation_Station("NO", i)
         rob.insert(rs.id)
         rs.operation = "nop"
@@ -238,8 +238,6 @@ def issue():
         timeTable.add_instruction(rs.id, instruction, i)
         Instruction_Buffer.pop(0)
         return
-
-
 
     # Get Destination Register
     destination = instruction_parts[1]
