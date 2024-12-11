@@ -22,9 +22,18 @@
 3) Test Case 3 - needs adjusted in report
         We had simple mistakes in timetable that needed fixed, Yang's comments cover some
         The code timetable looks good to me - report  needs to match it
+        Test case now has CDB contention
         
         *Change report to match code timetable*
         *Add final memory values as well*
+
+4) Test Case 4 - needs adjusted in report
+        There were numerous mistakes in the timetable - some caught by Dr Yang, some not
+        I believe the code timetable is correct, mainly coming from an instruction that can run earlier than intended on the report table
+        Should be okay like this
+
+        *R7 final value needs to be changed to 12 in report*
+        *F7 final value needs to be changed to 13 in report*
 
 
 # Set up Inststruction
