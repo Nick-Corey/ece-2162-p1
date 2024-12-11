@@ -9,7 +9,7 @@ from timetable import timetable
 from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
-input_file = 'input_2.json'
+input_file = 'input_3.json'
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -126,7 +126,7 @@ def initalize():
     return
     
 def output():
-    global Memory, int_rs, timeTable, total_instructions
+    global Memory, int_rs, timeTable, total_instructionsd, file_output
 
 
     print(Instruction_Buffer)
@@ -484,6 +484,7 @@ def execute():
         if not (LD_SD_fu.check_if_space())                                 : continue
 
         # Begin Execution
+        rs.a    = Int_Registers[int(timeTable.table[instruction_row][timeTable.instruction_loc].split()[-1][-2:-1])] # Update address on execution from issue
         LD_SD_fu.compute(rs)
         rs.busy = True
 
@@ -600,6 +601,7 @@ def memory(value):
             timeTable.add_memory(new_value[1], i+2, LD_SD_fu.mem_cycles)
     if not new_value:
         new_value = []
+
     return new_value
 
 def write():
@@ -636,6 +638,7 @@ def write():
     # Checking if load/store forwarding occured
     if cdb.hasData():
         writeBack = True
+
     else:
         #TODO ---------------------------------------------------------
         #  we really shouldnt have this control loop right here - at most we will only every writeback one instruction
@@ -646,18 +649,24 @@ def write():
             # if there is data to broadcast
             if result != None and cdb_instruction_id != None:
                 writeBack = True
+
                 if cdb.broadcast(result, cdb_instruction_id):
-                    rob.markComplete(cdb_instruction_id)
                     cdb_queue.pop(idx)
                     
-        # if mem_value:
-        #     if mem_value[0] != None and mem_value[1] != None:
-        #         if "Ld" in mem_value[2]:
-        #             cdb.broadcast(mem_value[0], mem_value[1])
-        #             rob.markComplete(mem_value[1])
 
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():
+
+        # We must ensure we don't writeback on the last stage of execution - edge case for ld instructions
+        id = cdb.read()[0][1]
+        if 'LD' in id:
+            execution_end = int(timeTable.getRow(id)[4].split('-')[-1])
+            if i == execution_end:
+                values      = values_p[:]
+                values_p    = None
+                mem_value   = mem_value_p[:]
+                mem_value_p = None
+                return
 
         cdb_data_item = cdb.pop()
         result = cdb_data_item[0]
@@ -668,8 +677,6 @@ def write():
             writeback_instruction_id = nop_rs[0].id
             nop_rs.pop(0)
             cdb.pop()
-
-
 
         # If Integer Add -------------------------------------
         if 'AI' in cdb_instruction_id:
@@ -739,10 +746,11 @@ def write():
                             Float_Registers[int(reg[1:])] = result
                     fp_mult_rs.pop(x)
                     cdb.pop()
+        # If Load         ----------------------------------------
         elif 'LD' in cdb_instruction_id:
+
             #Free Reservation Station
             for x, rs in enumerate(load_store_rs):
-
                 if rs.id == cdb_instruction_id and rs.operation == "Ld":
                     writeback_instruction_id = rs.id
                     #Update register file and RAT
@@ -767,19 +775,15 @@ def write():
     # Free Reservation Station
 
     # We pipeline data by a cycle so that execution and writeback occur on different cycles
-    values    = values_p[:]
-    mem_value = mem_value_p[:]
+    values      = values_p[:]
+    values_p    = None
+    mem_value   = mem_value_p[:]
+    mem_value_p = None
 
     # Update Timetable - only if good data on CDB
-    cycle = i
     if writeBack:
-        #Again - double check to make sure we arent writting back before execution has finished
-        if 'LD' in writeback_instruction_id:
-            execution_end = int(timeTable.getRow(writeback_instruction_id)[4][-1])
-            if i == execution_end:
-                cycle = cycle + 1
-        # Add to timetable
-        timeTable.add_writeback(writeback_instruction_id, cycle)
+        rob.markComplete(cdb_instruction_id)
+        timeTable.add_writeback(writeback_instruction_id, i)
 
     return
 
@@ -816,6 +820,11 @@ def commit(mem_value):
                         instruction_id = entry[1]
 
                         if instruction_id == rs.id:
+                            # Write into memory with update address
+                            instruction_row         = timeTable.getrowindexfromID(instruction_id)
+                            rs.a                    = Int_Registers[int(timeTable.table[instruction_row][timeTable.instruction_loc].split()[-1][-2:-1])] # Update address on execution from issue
+                            Memory[int(rs.a / 4)]   = Float_Registers[int(register_name[1:])] 
+
                             reg = register_name
                             rat.pop(j)
                     load_store_rs.pop(x)
