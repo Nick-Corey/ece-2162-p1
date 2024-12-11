@@ -897,8 +897,6 @@ if __name__ == "__main__":
         # Run as long as there are instructions to issue or instruction waiting to commit or loop just moved the PC back
         stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory))
         i = i + 1
-        if i > 20:
-            break
 
 
 
