@@ -28,6 +28,8 @@ class BranchPredictor:
     address_index   = 1
     prediction      = 2
 
+    history      = []     # Stores previous predictions of branches 
+
     def __init__(self):
         # Will initialize a branch predictor object
         # Use this to create an empty btb before we know the size or instructions or anything
@@ -48,27 +50,50 @@ class BranchPredictor:
                 self.bp.append([f'B{counter}', address, self.default])
                 counter = counter + 1
 
-    def predict(self, address:int):
-        # Will give the prediction from address
-        
-        # Find the entry and return associated prediction
-        for entry in self.bp:
-            if entry[self.address_index] == address:
-                return entry[self.prediction]
-            
-        # Return none if not found    
-        return None
+    def predict(self, value):
+        # Will give the prediction from address or id
 
-    def predict(self, id:str):
-        # Will give the prediction from id
-        
+        # If the passed value is an int, else assume string
+        if (type(value) == type(0)):
+            address = value
+        else:
+            id = value
+
+        # If we are given an address search for it, else us the reservation station id
+        if address:
         # Find the entry and return associated prediction
-        for entry in self.bp:
-            if entry[self.id_index] == id:
-                return entry[self.prediction]
+            for entry in self.bp:
+                if entry[self.address_index] == address:
+                    return entry[self.prediction]
+        else:
+            for entry in self.bp:
+                if entry[self.id_index] == id:
+                    return entry[self.prediction]
+            
             
         # Return none if not found    
         return None
+    # def predict(self, address:int):
+    #     # Will give the prediction from address
+        
+    #     # Find the entry and return associated prediction
+    #     for entry in self.bp:
+    #         if entry[self.address_index] == address:
+    #             return entry[self.prediction]
+            
+    #     # Return none if not found    
+    #     return None
+
+    # def predict(self, id:str):
+    #     # Will give the prediction from id
+        
+    #     # Find the entry and return associated prediction
+    #     for entry in self.bp:
+    #         if entry[self.id_index] == id:
+    #             return entry[self.prediction]
+            
+    #     # Return none if not found    
+    #     return None
     
     def updatePrediction(self, address:int, result:bool):
         # Will update the prediction based on prior result being correct or not using address
@@ -85,20 +110,20 @@ class BranchPredictor:
                     # Flip prediction
                     entry[self.prediction] = not entry[self.prediction]
 
-    def updatePrediction(self, id:str, result:bool):
-        # Will update the prediction based on prior result being correct or not using id
+    # def updatePrediction(self, id:str, result:bool):
+    #     # Will update the prediction based on prior result being correct or not using id
 
-        # If prediction was good, do not change it
-        if result == True:
-            pass
+    #     # If prediction was good, do not change it
+    #     if result == True:
+    #         pass
         
-        # If prediction was bad - flip
-        if result == False:
-            # Find the entry 
-            for entry in self.bp:
-                if entry[self.id_index] == id:
-                    # Flip prediction
-                    entry[self.prediction] = not entry[self.prediction]
+    #     # If prediction was bad - flip
+    #     if result == False:
+    #         # Find the entry 
+    #         for entry in self.bp:
+    #             if entry[self.id_index] == id:
+    #                 # Flip prediction
+    #                 entry[self.prediction] = not entry[self.prediction]
 
     def addBTB(self, instruction:str, current_address:int):
         # Add something to the branch target buffer
@@ -110,3 +135,17 @@ class BranchPredictor:
         # Return the target for a BTB entry
         target = self.btb[address % self.btb_max_size]
         return target
+    
+    def addHistory(self, id:int, taken:bool):
+        # Add a branch history entry
+        self.history.append((id, taken))
+
+    def searchHistory(self, id:int):
+        for entry in self.history:
+            if entry[0] == id:
+                return entry[1]
+            
+    def removeHistory(self, id:int):
+        for idx, entry in enumerate(self.history):
+            if entry[0] == id:
+                self.history.pop(idx)
