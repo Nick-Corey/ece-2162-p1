@@ -9,61 +9,57 @@ from timetable import timetable
 from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
-input_file = 'input_6.json'
+# Change the file name to match your file 
+input_file = 'TestCases/1.json'
 
 # Create Memory and Register arrays
-Memory = [0] * 32
-Int_Registers = [0] * 32
-Float_Registers = [0.0] * 32
-Instruction_Buffer = []
-int_rs_size = 0
-fp_adder_rs_size = 0
-fp_mult_rs_size = 0
-load_store_rs_size = 0
-nop_rs_size = 0
-int_rs = []
-fp_adder_rs = []
-fp_mult_rs = []
-load_store_rs = []
-nop_rs = []
+# Some are just placeholders and get real values form json
+Memory                  = [0] * 32
+Int_Registers           = [0] * 32
+Float_Registers         = [0.0] * 32
+Instruction_Buffer      = []
+int_rs_size             = 0
+fp_adder_rs_size        = 0
+fp_mult_rs_size         = 0
+load_store_rs_size      = 0
+nop_rs_size             = 0
+int_rs                  = []
+fp_adder_rs             = []
+fp_mult_rs              = []
+load_store_rs           = []
+nop_rs                  = []
 
 # TODO: allow for dynamic size CDB
-cdb = CommonDataBus(1)
-rat = []
-load_store_queue = []
-cdb_queue = []
+cdb                 = CommonDataBus(1)
+timeTable           = timetable()
+rob                 = ReorderBuffer()
+bp                  = BranchPredictor()
+rat                 = []
+load_store_queue    = []
+cdb_queue           = []
 
-# These get passed to writeback stage
-values          = []
-values_p        = []
-mem_value       = []
-mem_value_p     = []
-
-# Create time table
-timeTable = timetable()
-
-# Create ROB
-rob = ReorderBuffer()
-
-# Create Branch Predictor
-bp = BranchPredictor()
+# These get passed to writeback stage to delay data one cycle
+values           = []
+values_p         = []
+mem_value        = []
+mem_value_p      = []
 
 # Copies for BP
-int_rs_copy = []
-fp_adder_rs_copy = []
-fp_mult_rs_copy = []
-load_store_rs_copy = []
-rat_copy = []
-Int_Registers_Copy = []
-Float_Registers_Copy = []
-PC_Copy = 0
-rob_copy = None
-timeTable_Copy = None
-mispredict = False
+int_rs_copy             = []
+fp_adder_rs_copy        = []
+fp_mult_rs_copy         = []
+load_store_rs_copy      = []
+rat_copy                = []
+Int_Registers_Copy      = []
+Float_Registers_Copy    = []
+PC_Copy                 = 0
+rob_copy                = None
+timeTable_Copy          = None
+mispredict              = False
 
 # Program counter and program storage in memory
-total_instructions = 0 # Used for nice formatting of time table
 PC = 0
+total_instructions = 0 # Used for nice formatting of time table
 instruction_memory = []
 
 # Snapshot for mispredict rollback
@@ -72,7 +68,7 @@ snapshot_id     = 0
 prev_jump       = 0
 
 # Creating headers for Output tables
-Int_Registers_Names = [''] * 32
+Int_Registers_Names   = [''] * 32
 Float_Registers_Names = [''] * 32
 i = 0
 while i < 32:
@@ -83,7 +79,7 @@ while i < 32:
 def initalize():
     global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size, nop_rs, nop_rs_size, Nop_fu, expected_instructions
     # Open test case file
-    with open(f"TestCases/{input_file}") as test_file:
+    with open(f"{input_file}") as test_file:
         specs = json.load(test_file)
         # Read in parameters for memory initlization and initialize
         for mem in specs["specifications"]["Memory"]:
@@ -400,8 +396,6 @@ def issue():
         snapshot.append([rs.id, int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, timeTable_Copy])
 
         # Update PC
-        # Not sure if it should be PC or PC-1
-
         if prediction:
             new_pc = (PC) + int(branch_address)
             PC = new_pc
@@ -513,25 +507,16 @@ def execute():
 
     # Logic for branch instructions
     # If there is a return address 
-
-    # When doing branches use timeTable.remove to remove mispredicted entry row in the table
-    # Make sure to decrement the instruction counter, total_instructions = total_instructions - 1
-    # We must delay a cycle as well and clean bad values
-    # So when we take a branch - make a copy of registers, reservation stations, etc so that we can rollback
-    # We can undo some values with logic or we can take a snap shot of everything and rollback (cant snapshot everything in hardware, but probably easier to implement in software)
     if len(int_value) > 2:
 
         result = int_value[0]
         rs_id = int_value[1]
         address = int_value[2]
 
+        # Check if predictor was correct or not and adjust accordingly
+        #   Result = calculated branch result (official value)
+        #   Taken  = predictor guess
         if result:
-            #Update Predictor    
-            # x = bp.getBTB(PC-1)
-            # print('btb value: ', x)
-            # print(PC, bp.btb)
-
-            # Check if the branch predictor was correct and adjust accordingly
             taken = bp.searchHistory(rs_id)
             if taken:
                 pass
@@ -681,12 +666,11 @@ def memory(value):
     new_value = []
     # Memory Stage 
 
-    # if not (value[0] != None and value[1] != None and value[2] == "Ld"):
-    #     if len(load_store_queue):
-    #         value = load_store_queue.pop()
+    # Add good data to the load store queue
     if value[0] != None and value[1] != None and value[2] == "Ld":
         load_store_queue.append((value[0], value[1], 'Ld', value[3]))
 
+    # Process data in LSQ one cycle at a time
     if len(load_store_queue):
         if LD_SD_fu.check_if_mem_space():
             # value equal to ???
@@ -694,14 +678,8 @@ def memory(value):
             if inst[2] == 'Ld':
                 LD_SD_fu.mem_compute(inst[0], inst[1], inst[2], inst[3])
                 load_store_queue.pop()
-    # elif value[0] != None and value[1] != None and value[2] == "Ld":
-    #     if LD_SD_fu.check_if_mem_space():
-    #         # value equal to ???
-    #         LD_SD_fu.mem_compute(value[0], value[1], 'Ld', value[3])
-    #     else:
-    #         load_store_queue.append((value[0], value[1], 'Ld', value[3]))
 
-
+    # Add to timetable 
     if LD_SD_fu.mem_buffer_size():
         new_value = LD_SD_fu.mem_cycle(Memory, 'Ld')
         if new_value and new_value[1]:
@@ -709,6 +687,7 @@ def memory(value):
     if not new_value:
         new_value = []
 
+    # This is the return from load that needs to be written back
     return new_value
 
 def write():
@@ -732,24 +711,11 @@ def write():
         if mem_value[0] is not None and mem_value[1] is not None and mem_value[2] == 'Ld':
             cdb_queue.append(mem_value)
 
-    #print(cdb_queue)
-    # Broadcast on CDB
-    # TODO -------------------------------------------------------- 
-    # CDB should be updated
-    # We should be able to append data items to item up until it is full via an insert function (looks like broadcast but the name is deceiving)
-    # We should actaully broadcast the data to all the reservation stations and ROB entries when the singular writeback element is popped off
-    # -- ie - insert data into the buffer, broadcast results to other structures when we pop the one off (it will only every be one at a time)
-    # We can add multiple items to the buffer at a time (if they finish executing at the same time and there is space) but only one will ever be broadcasted
-
-
     # Checking if load/store forwarding occured
     if cdb.hasData():
         writeBack = True
 
     else:
-        #TODO ---------------------------------------------------------
-        #  we really shouldnt have this control loop right here - at most we will only every writeback one instruction
-        # Our buffer has varying size, but we only ever writeback one instruction. Can discuss
         for idx, value in enumerate(cdb_queue):
             result = value[0]
             cdb_instruction_id = value[1]
@@ -760,10 +726,8 @@ def write():
                 if cdb.broadcast(result, cdb_instruction_id):
                     cdb_queue.pop(idx)
                     
-
     # WriteBack first piece of data on CDB from CDB
     if cdb.hasData():
-
         # We must ensure we don't writeback on the last stage of execution - edge case for ld instructions
         id = cdb.read()[0][1]
         if 'LD' in id:
@@ -798,18 +762,15 @@ def write():
                         register_name = entry[0]
                         instruction_id = entry[1]
 
-                        # This is writing back when it should not be - must find why - check debug when i=6
                         if instruction_id == rs.id:
                             reg = register_name
-                            # Its these functions here - they are replacing when shouldnt
-                            # Intruction id  AI3 and rs.id == AI3 but it replaces value in AI5 reservation station
                             int_rs = searchRS(rs.id, result, int_rs)
                             fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[6] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
+                                entry[6] = copy.deepcopy(Int_Registers) 
                     int_rs.pop(x)
                     cdb.pop()
 
@@ -833,7 +794,7 @@ def write():
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[7] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
+                                entry[7] = copy.deepcopy(Int_Registers) 
                     fp_adder_rs.pop(x)
                     cdb.pop()
 
@@ -856,7 +817,7 @@ def write():
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[7] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
+                                entry[7] = copy.deepcopy(Int_Registers) 
                     fp_mult_rs.pop(x)
                     cdb.pop()
         # If Load         ----------------------------------------
@@ -879,18 +840,14 @@ def write():
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[7] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
+                                entry[7] = copy.deepcopy(Int_Registers) 
 
                     load_store_rs.pop(x)
                     cdb.pop()
         pass            
-    # Writeback to RF
-
-    # Updating Mapping
-
-    # Free Reservation Station
 
     # We pipeline data by a cycle so that execution and writeback occur on different cycles
+    # We need this because they occur within the same software loop
     values      = values_p[:]
     values_p    = None
     mem_value   = mem_value_p[:]
@@ -958,17 +915,16 @@ def commit(mem_value):
     # If the ROB is empty then nothing can be done
     if rob.isEmpty(): return
 
-    # Cannot commit and writeback on same cycle
-
     # Attempt to commit the head the entry
     instruction_id, commit_success = rob.commit()
+
     # If committed then update table -- If not, nothing occurs
     if commit_success and instruction_id is not None:
         # Must offset cycle since they technically execute in sequential order here but not in actuality
         timeTable.add_commit(instruction_id, i+1)
 
 def searchRS(id, value, rs_list):
-
+    # Helper Function to search reservation station on writeback
     for idx, rs in enumerate(rs_list):
         if rs.qj is not None:
             for entry in rat:
@@ -1001,8 +957,8 @@ def loadStoreForwarding(address, offset ,value, rs_list, queue, cdb, rob, timeTa
     return rs_list, queue, cdb, timeTable
 
 if __name__ == "__main__":
+    # The main function
 
-    # Begin
     initalize()
     i = 1
     stuff_to_be_done = True
@@ -1010,17 +966,13 @@ if __name__ == "__main__":
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
         issue()
-
-        # TODO -------------------------------------------------------------------------------- 
-        # Need to remove this value here - data from FUs needs to pass directly to CDB when done executing and if space is avaiable
-        # This approach is independant of the cdb object and functional units, we should cut this out
         values_p, mem = execute()
         mem_value_p = memory(mem)
         write()
         commit(mem)
 
         # Run as long as there are instructions to issue or instruction waiting to commit or loop just moved the PC back
-        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory)) or (i < 1000)
+        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory))
         i = i + 1
 
         # Cycle to fix mispredict

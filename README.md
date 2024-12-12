@@ -10,7 +10,7 @@
 
 2) Test Case 2 - needs adjusted in report
         do we wait until the entire store commit has finished before starting the next commit?
-        We were pipelined them in the report and that seemed okay but Its not like that now for some reason
+        We had pipelined them in the report and that seemed okay but Its not like that now for some reason
         The LD/SD code commits on the last cycle instead of the first so this would need to retroactively be changed since the ROB will block next instruction
         Can make it like report if we commit on first cycle instead of last and clear ROB but idk - I think this is okay - design choice...
 
@@ -20,7 +20,7 @@
         *Need to add final memory values to report*
 
 3) Test Case 3 - needs adjusted in report
-        We had simple mistakes in timetable that needed fixed, Yang's comments cover some
+        We had simple mistakes in timetable that needed fixed, Dr. Yang's comments cover some
         The code timetable looks good to me - report  needs to match it
         Test case now has CDB contention
         
@@ -38,6 +38,16 @@
 5) Test Case 5 - needs work
         
         I kinda give up because the branch predictor is always up and i cant turn it off
+        We should find a way to toggle it off (probably not)
+        Orrr
+        Just not do test case 5 since test case 6 works
+
+6) Test Case 6 - good
+        This test case works
+        I don't expect other branch predictor instructions to work
+        But this one does...
+        
+        *No Changes in report*
 
 
 # Set up Inststruction
