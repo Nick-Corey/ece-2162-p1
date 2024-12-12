@@ -35,6 +35,10 @@
         *R7 final value needs to be changed to 12 in report*
         *F7 final value needs to be changed to 13 in report*
 
+5) Test Case 5 - needs work
+        
+        I kinda give up because the branch predictor is always up and i cant turn it off
+
 
 # Set up Inststruction
 

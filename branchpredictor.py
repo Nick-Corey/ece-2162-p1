@@ -41,7 +41,7 @@ class BranchPredictor:
         # Could do these individually at runtime but in one fell swoop makes things easier as I don't know other guy's plans
 
         counter = 0
-
+        print(f"Branch Predictor Default set to {self.default}")
         for address,instruction in enumerate(instructions):
             # Check if instruction is a branch instruction - may need more robust condition
             if "B" in instruction.split()[0]:
@@ -149,3 +149,10 @@ class BranchPredictor:
         for idx, entry in enumerate(self.history):
             if entry[0] == id:
                 self.history.pop(idx)
+
+    def __str__(self):
+        out = ""
+        for entry in self.bp:
+            out += f"Branch Address-{entry[0]} Prediction-{entry[2]}\n"
+
+        return out

@@ -9,7 +9,7 @@ from timetable import timetable
 from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
-input_file = 'input_4.json'
+input_file = 'input_6.json'
 
 # Create Memory and Register arrays
 Memory = [0] * 32
@@ -66,6 +66,11 @@ total_instructions = 0 # Used for nice formatting of time table
 PC = 0
 instruction_memory = []
 
+# Snapshot for mispredict rollback
+snapshot        = []
+snapshot_id     = 0
+prev_jump       = 0
+
 # Creating headers for Output tables
 Int_Registers_Names = [''] * 32
 Float_Registers_Names = [''] * 32
@@ -76,7 +81,7 @@ while i < 32:
     i = i + 1
 
 def initalize():
-    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size, nop_rs, nop_rs_size, Nop_fu
+    global Int_fu, int_rs_size, FP_adder_fu, fp_adder_rs_size, fp_mult_rs_size, FP_mult_fu, LD_SD_fu, load_store_rs_size, nop_rs, nop_rs_size, Nop_fu, expected_instructions
     # Open test case file
     with open(f"TestCases/{input_file}") as test_file:
         specs = json.load(test_file)
@@ -117,11 +122,11 @@ def initalize():
         #Initalize Time Table
         timeTable.resize(1000)
 
-        #Initalize ROB to correct size
-        rob.resize(specs["specifications"]["ROB entries"])
+    #Initalize ROB to correct size
+    rob.resize(specs["specifications"]["ROB entries"])
 
-        #Initialize Branch Predictor
-        bp.initializePredictions(instruction_memory)
+    #Initialize Branch Predictor
+    bp.initializePredictions(instruction_memory)
 
     return
     
@@ -144,25 +149,32 @@ def output():
     print(tabulate([Int_Registers], Int_Registers_Names, tablefmt="simple_grid"))
     print(tabulate([Float_Registers], Float_Registers_Names, tablefmt="simple_grid"))
 
+    # Reservation Stations
     for rs in int_rs:
         print(rs)
     for rs in fp_adder_rs:
         print(rs)
-    print(fp_mult_rs)
-    # print(load_store_rs)
+    for rs in fp_mult_rs:
+        print(rs)
     for rs in load_store_rs:
         print(rs)
-    print(nop_rs)
-    print(rat)
+    for rs in nop_rs:     
+        print(rs)
+    if rat:
+        print(rat)
 
     # Print timetable
     timeTable.resize(total_instructions)
     print(timeTable)
 
+    # Branch Predictor
+    if '6' in input_file:
+        print(bp)
+
 def issue():
     global int_rs, fp_adder_rs, PC, instruction_memory, total_instructions
     global Int_fu, int_rs, fp_adder_rs, FP_adder_fu, nop_rs, fp_mult_rs, load_store_rs, Nop_fu, PC, bp, Instruction_Buffer, total_instructions, rat, Int_Registers, Float_Registers
-    global int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, mispredict, timeTable, timeTable_Copy
+    global int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, mispredict, timeTable, timeTable_Copy, prev_jump
 
     instruction_type = ""
     value1 = None
@@ -372,30 +384,30 @@ def issue():
         bp.addBTB(instruction, PC-1)
         prediction = bp.predict(int(PC-1))
         bp.addHistory(rs.id, prediction)
-        if prediction:
-            # Copy RS, RAT, RF, etc
-            # May want to append to list?
-            int_rs_copy = copy.deepcopy(int_rs)
-            fp_adder_rs_copy = copy.deepcopy(fp_adder_rs)
-            fp_mult_rs_copy = copy.deepcopy(fp_mult_rs)
-            load_store_rs_copy = copy.deepcopy(load_store_rs)
-            rat_copy = copy.deepcopy(rat)
-            Int_Registers_Copy = copy.deepcopy(Int_Registers)
-            Float_Registers_Copy = copy.deepcopy(Float_Registers)
-            PC_Copy = copy.deepcopy(PC-1)
-            rob_copy = copy.deepcopy(rob)
-                                     
-            timeTable_Copy = copy.deepcopy(timeTable)
 
-            # Update PC
-            # Not sure if it should be PC or PC-1
+        # Copy RS, RAT, RF, etc
+        int_rs_copy                  = copy.deepcopy(int_rs)
+        fp_adder_rs_copy             = copy.deepcopy(fp_adder_rs)
+        fp_mult_rs_copy              = copy.deepcopy(fp_mult_rs)
+        load_store_rs_copy           = copy.deepcopy(load_store_rs)
+        rat_copy                     = copy.deepcopy(rat)
+        Int_Registers_Copy           = copy.deepcopy(Int_Registers)
+        Float_Registers_Copy         = copy.deepcopy(Float_Registers)
+        PC_Copy                      = copy.deepcopy(PC-1)
+        rob_copy                     = copy.deepcopy(rob)          
+        timeTable_Copy               = copy.deepcopy(timeTable)
+
+        snapshot.append([rs.id, int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, timeTable_Copy])
+
+        # Update PC
+        # Not sure if it should be PC or PC-1
+
+        if prediction:
             new_pc = (PC) + int(branch_address)
             PC = new_pc
-
-
+            prev_jump = int(branch_address)
         else:
-            # Do thing
-            pass
+            prev_jump = 0
 
     return
 
@@ -523,34 +535,129 @@ def execute():
             taken = bp.searchHistory(rs_id)
             if taken:
                 pass
+            # We did not take the branch when we should have - take branch - rollback
             else:
                 # Update PC to execute branch instruction
-                PC = PC + int(address)
-                # Update branch predictor    
-                bp.updatePrediction(1, False)
+                if prev_jump == 0:
+                    PC = PC + int(address) - 1
+                else:
+                    PC = PC + int(address) - prev_jump - 2
+                
+                # Rollback data structures
+                for entry in snapshot:
+                    if entry[0] == rs_id:
+                        bad_instructions = 0
+                        # entry has form ([rs.id, int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, timeTable_Copy])
+
+                        Int_Registers       = entry[6]
+                        Float_Registers     = entry[7]
+                        
+                        # Remove bad stuff that shouldn't have been issued
+                        row = timeTable.getRow(rs_id)
+                        last_correct_issue = row[timetable.issue_loc]
+                        for j in range(total_instructions):
+                            if (timeTable.table[j][timeTable.issue_loc] == '~'): break
+                            issue_cycle = int(timeTable.table[j][timeTable.issue_loc])
+                            if issue_cycle > last_correct_issue:
+                                id = timeTable.table[j][timeTable.id_loc]
+
+                                # Remove from rat
+                                for idx, alias in enumerate(rat):
+                                    if alias[1] == id:
+                                        rat.pop(idx)
+
+                                # Remove from reservation stations
+                                for idx, reservation_station in enumerate(int_rs):
+                                    if reservation_station.id == id:
+                                        int_rs.pop(idx)
+                                for idx, reservation_station in enumerate(fp_adder_rs):
+                                    if reservation_station.id == id:
+                                        fp_adder_rs.pop(idx)
+                                for idx, reservation_station in enumerate(fp_mult_rs):
+                                    if reservation_station.id == id:
+                                        fp_mult_rs.pop(idx)
+                                for idx, reservation_station in enumerate(load_store_rs):
+                                    if reservation_station.id == id:
+                                        load_store_rs.pop(idx)
+
+                                # Remove from ROB and Timetable
+                                rob.remove(id)
+                                timeTable.remove(j)
+                                total_instructions  = total_instructions - 1
+                                j = j - 1
+
+                        # Raise flag and reset instruction buffer
+                        mispredict          = True
+                        Instruction_Buffer  = []
+                        
+                # Update branch predictor 
+                # Get address in memory and use that
+                mem_address = 0
+                for idx, entry in enumerate(instruction_memory):
+                       entry = entry.replace(",", "").lower()
+                       if entry == row[timeTable.instruction_loc].lower():
+                         bp.updatePrediction(idx, False)
+
         else:
             taken = bp.searchHistory(rs_id)
+            # We took the branch when we shouldn't have - rollback
             if taken:
-                PC = copy.deepcopy(PC_Copy)
-                int_rs = copy.deepcopy(int_rs_copy)
-                fp_adder_rs = copy.deepcopy(fp_adder_rs_copy)
-                fp_mult_rs = copy.deepcopy(fp_mult_rs_copy)
-                load_store_rs = copy.deepcopy(load_store_rs_copy)
-                rat = copy.deepcopy(rat_copy)
-                Int_Registers = copy.deepcopy(Int_Registers_Copy)
-                Float_Registers = copy.deepcopy(Float_Registers_Copy)
-                PC = copy.deepcopy(PC_Copy)
-                Instruction_Buffer = []
-                total_instructions = total_instructions - 1
-                timeTable = copy.deepcopy(timeTable_Copy)
-                rob = copy.deepcopy(rob_copy)
-                mispredict = True
+                PC = PC - int(address) + 1 - prev_jump
+                # Rollback data structures
+                for entry in snapshot:
+                    if entry[0] == rs_id:
+                        bad_instructions = 0
+                        # entry has form ([rs.id, int_rs_copy, fp_adder_rs_copy, fp_mult_rs_copy, load_store_rs_copy, rat_copy, Int_Registers_Copy, Float_Registers_Copy, PC_Copy, rob_copy, timeTable_Copy])
 
-                # Update branch predictor    
-                bp.updatePrediction(1, False)
+                        Int_Registers       = entry[6]
+                        Float_Registers     = entry[7]
+                        
+                        # Remove bad stuff that shouldn't have been issued
+                        row = timeTable.getRow(rs_id)
+                        last_correct_issue = row[timetable.issue_loc]
+                        for j in range(total_instructions):
+                            if (timeTable.table[j][timeTable.issue_loc] == '~'): break
+                            issue_cycle = int(timeTable.table[j][timeTable.issue_loc])
+                            if issue_cycle > last_correct_issue:
+                                id = timeTable.table[j][timeTable.id_loc]
 
-            pass
+                                # Remove from rat
+                                for idx, alias in enumerate(rat):
+                                    if alias[1] == id:
+                                        rat.pop(idx)
+
+                                # Remove from reservation stations
+                                for idx, reservation_station in enumerate(int_rs):
+                                    if reservation_station.id == id:
+                                        int_rs.pop(idx)
+                                for idx, reservation_station in enumerate(fp_adder_rs):
+                                    if reservation_station.id == id:
+                                        fp_adder_rs.pop(idx)
+                                for idx, reservation_station in enumerate(fp_mult_rs):
+                                    if reservation_station.id == id:
+                                        fp_mult_rs.pop(idx)
+                                for idx, reservation_station in enumerate(load_store_rs):
+                                    if reservation_station.id == id:
+                                        load_store_rs.pop(idx)
+
+                                # Remove from ROB and Timetable
+                                rob.remove(id)
+                                timeTable.remove(j)
+                                total_instructions  = total_instructions - 1
+                                j = j - 1
+
+                        # Raise flags and reset instruction buffer
+                        mispredict          = True
+                        Instruction_Buffer  = []
+                        
+                        
+                mem_address = 0
+                for idx, entry in enumerate(instruction_memory):
+                    entry = entry.replace(",", "").lower()
+                    if entry == row[timeTable.instruction_loc].lower():
+                        bp.updatePrediction(idx, False)
         
+        # Go through rob and mark complete if needed
         for idx, rs in enumerate(int_rs):
             if rs_id in rs.id:
                 int_rs.pop(idx)
@@ -701,6 +808,8 @@ def write():
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = result
+                            for entry in snapshot:
+                                entry[6] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
                     int_rs.pop(x)
                     cdb.pop()
 
@@ -723,6 +832,8 @@ def write():
                             fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
+                            for entry in snapshot:
+                                entry[7] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
                     fp_adder_rs.pop(x)
                     cdb.pop()
 
@@ -744,6 +855,8 @@ def write():
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
+                            for entry in snapshot:
+                                entry[7] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
                     fp_mult_rs.pop(x)
                     cdb.pop()
         # If Load         ----------------------------------------
@@ -765,6 +878,9 @@ def write():
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
+                            for entry in snapshot:
+                                entry[7] = copy.deepcopy(Int_Registers) # Replace oldest snapshot - hacky solution but enough atm
+
                     load_store_rs.pop(x)
                     cdb.pop()
         pass            
@@ -788,7 +904,7 @@ def write():
     return
 
 def commit(mem_value):
-    global load_store_rs, LD_SD_fu, Float_Registers, Memory, load_store_queue, cdb, timeTable, mispredict
+    global load_store_rs, LD_SD_fu, Float_Registers, Memory, load_store_queue, cdb, timeTable, mispredict, rob
     #Store instruction
 
     if mem_value[0] != None and mem_value[1] != None and mem_value[2] == "Sd":
@@ -888,8 +1004,8 @@ if __name__ == "__main__":
 
     # Begin
     initalize()
-    stuff_to_be_done = True
     i = 1
+    stuff_to_be_done = True
 
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
@@ -902,10 +1018,13 @@ if __name__ == "__main__":
         mem_value_p = memory(mem)
         write()
         commit(mem)
+
         # Run as long as there are instructions to issue or instruction waiting to commit or loop just moved the PC back
-        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory))
+        stuff_to_be_done = (Instruction_Buffer) or (rob.isNotEmpty()) or (PC < len(instruction_memory)) or (i < 1000)
         i = i + 1
 
-
-
+        # Cycle to fix mispredict
+        if mispredict:
+            i = i + 1
+    
     output()

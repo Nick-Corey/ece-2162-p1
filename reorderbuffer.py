@@ -82,6 +82,19 @@ class ReorderBuffer():
     def isNotEmpty(self):
         return not self.isEmpty()
 
+    def pop(self):
+        # Removes a row from the rob
+        # Intended to be used when correcting a misprediction
+        self.rob = np.delete(self.rob, 0, axis=0)
+        self.count = self.count - 1
+
+    def remove(self, id:str):
+        # Remove entry from rob
+        # Intended to be used when correcting a misprediction
+        row_index = np.where(self.rob[:,0] == id)[0][0]
+        self.rob = np.delete(self.rob, row_index, axis=0)
+        self.count = self.count - 1
+
     def __str__(self):
         # Pretty string function
         headers = ["ID", "Register", "Value", "Done"]

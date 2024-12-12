@@ -110,7 +110,14 @@ class timetable():
         # Intended to be used when correcting a misprediction
 
         row_index = self.getrowindexfromID(id)
-        self.table = np.delete(self.table, row_index, axis=0)
+        self.table[row_index] = ["~", "~", "~", "~", "~", "~", "~"]
+        #self.table = np.delete(self.table, row_index, axis=0)
+        self.count = self.count - 1
+
+    def remove(self, instruction_number):
+        self.table[instruction_number] = ["~", "~", "~", "~", "~", "~", "~"]
+        #self.table = np.delete(self.table, instruction_number, axis=0)
+        self.count = self.count - 1
 
     def getRow(self, id:str):
         # Returns a row
