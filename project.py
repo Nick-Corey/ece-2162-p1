@@ -7,7 +7,7 @@ from cdb import CommonDataBus
 from timetable import timetable
 from reorderbuffer import ReorderBuffer
 
-input_file = 'input_2.json'
+input_file = 'input_5.json'
 
 # Create Memory and Register arrays
 Memory = [0] * 32

@@ -1,0 +1,81 @@
+{
+    "specifications" : {
+        "operations" : [
+            {
+                "name" : "Integer Adder",
+                "reservation_station_num" : 2,
+                "EX cycles" : 1,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "FP Adder",
+                "reservation_station_num" : 3,
+                "EX cycles" : 3,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "FP Multiplier",
+                "reservation_station_num" : 2,
+                "EX cycles" : 20,
+                "mem_cycles" :  0,
+                "FUs" : 1
+            },
+            {
+                "name" : "Load/Store Unit",
+                "reservation_station_num" : 3,
+                "EX cycles" : 1,
+                "mem_cycles" : 4,
+                "FUs" : 1
+            }
+        ],
+        "ROB entries" : 128,
+        "CDB Buffer Entries" : 1,
+        "Registers" : [
+            {
+                "name" : "R3",
+                "value" : 10
+            },
+            {
+                "name" : "R4",
+                "value" : 0
+            },
+            {
+                "name" : "R5",
+                "value" : 2
+            },
+            {
+                "name" : "R6",
+                "value" : 4
+            },
+            {
+                "name" : "R7",
+                "value" : 0
+            },
+            {
+                "name" : "F2",
+                "value" : 3.1415926
+            }
+        ],
+        "Memory" : [
+            {
+                "name" : "0",
+                "value" : "2.72"
+            },
+            {
+                "name" : "4",
+                "value" : "0"
+            }
+        ],
+        "Instructions" : [
+            { "value" : "LD F1, 0(R7)"},
+            { "value" : "Add.d F1, F1, F1"},
+            { "value" : "Addi R4, R4, 1"},
+            { "value" : "Bne R4, R5, -3"},
+            { "value" : "Addi R7, R7, 1"},
+            { "value" : "Addi R7, R7, 1"},
+            { "value" : "SD F2, 0(R6)"} 
+        ]
+    }
+}
