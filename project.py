@@ -140,10 +140,32 @@ def output():
     mem_headers = list(non_zero[0])
     mem_headers = ["Mem[" + str(i * 4) + "]" for i in mem_headers]
 
+    # Ignore Zeros
+    zero_indices_Int_Reg = [index for index, value in enumerate(Int_Registers) if value != 0]
+    zero_indices_FPU_Reg = [index for index, value in enumerate(Float_Registers) if value != 0]
+    Int_reg_copy        = []
+    Int_header_copy     = []
+    FPU_reg_copy        = []
+    FPU_header_copy     = []
+
+    for index in zero_indices_Int_Reg:
+        Int_reg_copy.append(Int_Registers[index])
+        Int_header_copy.append(Int_Registers_Names[index])
+
+    for index in zero_indices_FPU_Reg:
+        FPU_reg_copy.append(Float_Registers[index])
+        FPU_header_copy.append(Float_Registers_Names[index])
+
+
     # Output Memory
     print(tabulate([mem[non_zero]], mem_headers, tablefmt="simple_grid"))
-    print(tabulate([Int_Registers], Int_Registers_Names, tablefmt="simple_grid"))
-    print(tabulate([Float_Registers], Float_Registers_Names, tablefmt="simple_grid"))
+    print(tabulate([Int_reg_copy], Int_header_copy, tablefmt="simple_grid"))
+    print(tabulate([FPU_reg_copy], FPU_header_copy, tablefmt="simple_grid"))
+
+    # # Output Memory
+    # print(tabulate([mem[non_zero]], mem_headers, tablefmt="simple_grid"))
+    # print(tabulate([Int_Registers], Int_Registers_Names, tablefmt="simple_grid"))
+    # print(tabulate([Float_Registers], Float_Registers_Names, tablefmt="simple_grid"))
 
     # Reservation Stations
     for rs in int_rs:
@@ -160,6 +182,7 @@ def output():
         print(rat)
 
     # Print timetable
+    #timeTable.resize(total_instructions)
     timeTable.resize(total_instructions)
     print(timeTable)
 
@@ -247,17 +270,29 @@ def issue():
     destination = instruction_parts[1]
 
     # Read Operands from Register File
-    operand1 = instruction_parts[2]
-
-    if 'Ld' not in operation and 'Sd' not in operation and 'Bne' not in operation and 'Beq' not in operation:
-        operand2 = instruction_parts[3]
-
+    if 'Bne' not in operation and 'Beq' not in operation:
+        
         #Search RAT for dependencies
-        for entry in rat:
-            if operand1 in entry[0]:
-                value1 = entry[1]
-            if operand2 in entry[0]:
-                value2 = entry[1]
+        if 'Ld' not in operation and 'Sd' not in operation:
+            operand1 = instruction_parts[2]
+            operand2 = instruction_parts[3]
+            for entry in rat:
+                if operand1 in entry[0]:
+                    value1 = entry[1]
+                if operand2 in entry[0]:
+                    value2 = entry[1]
+        else:
+            operand1 = instruction_parts[1]
+            operand2 = instruction_parts[2].split("(")[1].split(')')[0]
+            for entry in rat:
+                if operand1 in entry[0]:
+                    value1 = entry[1]
+                if operand2 in entry[0]:
+                    value2 = entry[1]
+
+            if value2 is None:
+                reg = operand2
+                value2 = Int_Registers[int(reg[1:])]
     
     if "Addi" in operation:
         if value1 is None:
@@ -277,20 +312,21 @@ def issue():
                 value2 = Float_Registers[int(operand2[1:])] 
     elif "Ld" in operation:
         # Ld F4, 8(R1)
-        parts = operand1.replace(')', '').split('(') 
-        reg = parts[1]
-        offset = int(parts[0])
-        if value1 is None:
-            value1 = Int_Registers[int(reg[1:])] 
+        # parts = operand1.replace(')', '').split('(') 
+        # reg = parts[1]
+        # offset = int(parts[0])
+        # If no dependencies
+        pass 
+
+
     elif "Sd" in operation:
         # Ld F4, 8(R1)
-        parts = operand1.replace(')', '').split('(') 
-        reg = parts[1]
-        offset = int(parts[0])
-        if value1 is None:
-            value1 = Int_Registers[int(reg[1:])] 
-        if value2 is None:
-            value2 = Float_Registers[int(destination[1:])] 
+        # parts = operand1.replace(')', '').split('(') 
+        # reg = parts[1]
+        # offset = int(parts[0])
+        # If no dependencies read reg value
+        pass
+            
     elif "Bne" in operation or "Beq" in operation:
         operand1 = instruction_parts[1]
         operand2 = instruction_parts[2]
@@ -320,17 +356,22 @@ def issue():
 
     if 'Ld' in operation:
         #TODO Register renaming for LD???
-        rs.a = value1
-        rs.vj = offset
+        #rs.a = value1
+        #rs.vj = offset
+        if type(value2) == type("value"):
+            rs.qj = value2
+        else:
+            rs.vj = value2
+
     elif 'Sd' in operation:
         #TODO Register renaming for SD
-        rs.a = value1
-        rs.vj = offset
+        #rs.a = value1
+        #rs.vj = offset
         #rs.vk = value2
         if type(value2) == type("value"):
-            rs.qk = value2
+            rs.qj = value2
         else:
-            rs.vk = value2
+            rs.vj = value2
     # Check if the value is a string or a number
     elif 'Beq' in operation or 'Bne' in operation:
         rs.a = branch_address
@@ -486,7 +527,7 @@ def execute():
         # Cannot execute if functional unit is busy #TODO - pipelined!!!!!
         instruction_row = timeTable.getrowindexfromID(rs.id)
         if not (timeTable.table[instruction_row][timeTable.issue_loc] != i): continue
-        if not (rs.busy == False and rs.vj != None and rs.a != None)       : continue
+        if not (rs.busy == False and rs.vj != None)                        : continue
         if not (LD_SD_fu.check_if_space())                                 : continue
 
         # Begin Execution
@@ -551,6 +592,13 @@ def execute():
                                     if alias[1] == id:
                                         rat.pop(idx)
 
+                                # Remove from ALUs if in them
+                                Int_fu.remove(id)
+                                FP_adder_fu.remove(id)
+                                FP_mult_fu.remove(id)
+                                Nop_fu.remove(id)
+                                LD_SD_fu.remove(id)
+
                                 # Remove from reservation stations
                                 for idx, reservation_station in enumerate(int_rs):
                                     if reservation_station.id == id:
@@ -596,7 +644,7 @@ def execute():
 
                         Int_Registers       = entry[6]
                         Float_Registers     = entry[7]
-                        
+
                         # Remove bad stuff that shouldn't have been issued
                         row = timeTable.getRow(rs_id)
                         last_correct_issue = row[timetable.issue_loc]
@@ -610,6 +658,13 @@ def execute():
                                 for idx, alias in enumerate(rat):
                                     if alias[1] == id:
                                         rat.pop(idx)
+
+                                # Remove from ALUs if in them
+                                Int_fu.remove(id)
+                                FP_adder_fu.remove(id)
+                                FP_mult_fu.remove(id)
+                                Nop_fu.remove(id)
+                                LD_SD_fu.remove(id)
 
                                 # Remove from reservation stations
                                 for idx, reservation_station in enumerate(int_rs):
@@ -658,10 +713,17 @@ def execute():
     # for rs in nop_rs:
     #     print(rs)
 
+    if i == 10:
+        pass
+
+    if ld_sd_value[1]:
+        pass
+
     return [int_value, fp_adder_value, fp_mult_value, nop_value], ld_sd_value
 
 def memory(value):
     global load_store_queue
+
 
     new_value = []
     # Memory Stage 
@@ -677,7 +739,7 @@ def memory(value):
             inst = load_store_queue[0]
             if inst[2] == 'Ld':
                 LD_SD_fu.mem_compute(inst[0], inst[1], inst[2], inst[3])
-                load_store_queue.pop()
+                load_store_queue.pop(0)
 
     # Add to timetable 
     if LD_SD_fu.mem_buffer_size():
@@ -767,6 +829,7 @@ def write():
                             int_rs = searchRS(rs.id, result, int_rs)
                             fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
+                            load_store_rs = searchRS(rs.id, result, load_store_rs)
                             rat.pop(j)
                             Int_Registers[int(reg[1:])] = result
                             for entry in snapshot:
@@ -790,11 +853,12 @@ def write():
                         if instruction_id == rs.id:
                             reg = register_name
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
+                            load_store_rs = searchRS(rs.id, result, load_store_rs)
                             fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[7] = copy.deepcopy(Int_Registers) 
+                                entry[7] = copy.deepcopy(Float_Registers) 
                     fp_adder_rs.pop(x)
                     cdb.pop()
 
@@ -813,11 +877,12 @@ def write():
                         if instruction_id == rs.id:
                             reg = register_name
                             fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
+                            load_store_rs = searchRS(rs.id, result, load_store_rs)
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[7] = copy.deepcopy(Int_Registers) 
+                                entry[7] = copy.deepcopy(Float_Registers) 
                     fp_mult_rs.pop(x)
                     cdb.pop()
         # If Load         ----------------------------------------
@@ -836,11 +901,12 @@ def write():
                         if instruction_id == rs.id:
                             reg = register_name
                             fp_mult_rs = searchRS(rs.id, result, fp_mult_rs)
+                            load_store_rs = searchRS(rs.id, result, load_store_rs)
                             fp_adder_rs = searchRS(rs.id, result, fp_adder_rs)
                             rat.pop(j)
                             Float_Registers[int(reg[1:])] = result
                             for entry in snapshot:
-                                entry[7] = copy.deepcopy(Int_Registers) 
+                                entry[7] = copy.deepcopy(Float_Registers) 
 
                     load_store_rs.pop(x)
                     cdb.pop()
@@ -893,9 +959,9 @@ def commit(mem_value):
                         instruction_id = entry[1]
 
                         if instruction_id == rs.id:
-                            # Write into memory with update address
-                            instruction_row         = timeTable.getrowindexfromID(instruction_id)
-                            rs.a                    = Int_Registers[int(timeTable.table[instruction_row][timeTable.instruction_loc].split()[-1][-2:-1])] # Update address on execution from issue
+                            # Write into memory with update address - we actually dont want to do this because address gets calculated at execute
+                            # instruction_row         = timeTable.getrowindexfromID(instruction_id)
+                            # rs.a                    = Int_Registers[int(timeTable.table[instruction_row][timeTable.instruction_loc].split()[-1][-2:-1])] # Update address on execution from issue
                             Memory[int(rs.a / 4)]   = Float_Registers[int(register_name[1:])] 
 
                             reg = register_name
@@ -965,6 +1031,24 @@ if __name__ == "__main__":
 
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
+
+        if (i == 35):
+            pass
+        
+        # if (i == 20):
+        #     pass
+        
+        # if (i == 30):
+        #     pass
+        
+        # if (i == 40):
+        #     pass
+        
+        # if (i == 50):
+        #     pass
+
+
+
         issue()
         values_p, mem = execute()
         mem_value_p = memory(mem)
@@ -979,8 +1063,8 @@ if __name__ == "__main__":
         if mispredict:
             i = i + 1
 
-        # timeTable.resize(15)
-        # print(i)
-        # print(timeTable)
-    
+        # print(f'Cycle {i} -------------------------------------------------')
+        # output()
+        # print("\n")
+
     output()

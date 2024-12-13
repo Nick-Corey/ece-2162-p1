@@ -57,6 +57,13 @@ class Int_adder():
             return (return_value, rs_num, address)
         else:
             return (return_value, rs_num)
+        
+    def remove(self, id:str):
+        # Remove an instruction from the alu
+        for idx, entry in enumerate(self.buffer):
+            if id in entry[4]:
+                self.buffer.pop(idx)
+                break
 
 class FP_Adder():
 
@@ -98,6 +105,13 @@ class FP_Adder():
                     rs_num = inst[4]
                     self.buffer.pop(i)
         return (return_value, rs_num)
+    
+    def remove(self, id:str):
+    # Remove an instruction from the alu
+        for idx, entry in enumerate(self.buffer):
+            if id in entry[4]:
+                self.buffer.pop(idx)
+                break
 
 class FP_Mult():
 
@@ -135,6 +149,14 @@ class FP_Mult():
                     rs_num = inst[4]
                     self.buffer.pop(i)
         return (return_value, rs_num)
+    
+
+    def remove(self, id:str):
+        # Remove an instruction from the alu
+        for idx, entry in enumerate(self.buffer):
+            if id in entry[4]:
+                self.buffer.pop(idx)
+                break
 
 class LD_SD():
 
@@ -173,7 +195,7 @@ class LD_SD():
             self.buffer[x] = inst
             if (inst[3] == self.exec_cycles):
                 operation = inst[0]
-                return_value = int(inst[1]) + inst[2]
+                return_value = int(inst[1])
                 rs_num = inst[4]
                 store_value = inst[5]
                 self.buffer.pop(x)
@@ -223,6 +245,13 @@ class LD_SD():
         else:
             return (None, None, None)
         
+    def remove(self, id:str):
+     # Remove an instruction from the alu
+        for idx, entry in enumerate(self.mem_buffer):
+            if id in entry[1]:
+                self.mem_buffer.pop(idx)
+                break
+
 class NOP():
 
     def __init__(self):
@@ -257,3 +286,10 @@ class NOP():
                 rs_num = inst[4]
                 self.buffer.pop(i)
         return (return_value, rs_num)
+    
+    def remove(self, id:str):
+        # Remove an instruction from the alu
+        for idx, entry in enumerate(self.buffer):
+            if id in entry[4]:
+                self.buffer.pop(idx)
+                break
