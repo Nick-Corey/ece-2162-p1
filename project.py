@@ -10,7 +10,7 @@ from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
 # Change the file name to match your file 
-input_file = 'TestCases/input.json'
+input_file = 'TestCases/input_2.json'
 
 # Create Memory and Register arrays
 # Some are just placeholders and get real values form json
@@ -201,13 +201,10 @@ def issue():
 
     mispredict = False
 
-    if i == 31:
-        pass
-
     # Load instruction from memory and place onto instruction buffer for issuing
     if (PC < len(instruction_memory)) and (len(Instruction_Buffer) < 1):
         Instruction_Buffer.append(instruction_memory[PC])
-        prev_jump = 0 # Use to fix predicted branch predictions - nested
+        #prev_jump = 0 # Use to fix predicted branch predictions - nested
         PC = PC + 1 # Increment program counter
 
     # If no instructions left - nothing to issue - exit
@@ -321,16 +318,13 @@ def issue():
         # offset = int(parts[0])
         # If no dependencies
         pass 
-
-
     elif "Sd" in operation:
         # Ld F4, 8(R1)
         # parts = operand1.replace(')', '').split('(') 
         # reg = parts[1]
         # offset = int(parts[0])
         # If no dependencies read reg value
-        pass
-            
+        pass     
     elif "Bne" in operation or "Beq" in operation:
         operand1 = instruction_parts[1]
         operand2 = instruction_parts[2]
@@ -366,7 +360,6 @@ def issue():
             rs.qj = value2
         else:
             rs.vj = value2
-
     elif 'Sd' in operation:
         #TODO Register renaming for SD
         #rs.a = value1
@@ -376,7 +369,6 @@ def issue():
             rs.qj = value2
         else:
             rs.vj = value2
-    # Check if the value is a string or a number
     elif 'Beq' in operation or 'Bne' in operation:
         rs.a = branch_address
         if type(value1) == type("value"):
@@ -387,7 +379,6 @@ def issue():
             rs.qk = value2
         else:
             rs.vk = value2
-
     else:
         # Check if the value is a string or a number
         if type(value1) == type("value"):
@@ -639,7 +630,11 @@ def execute():
             taken = bp.searchHistory(rs_id)
             # We took the branch when we shouldn't have - rollback
             if taken:
-                PC = PC - int(address) - 1 - prev_jump
+                if prev_jump == 0:
+                    PC = PC - int(address) - 2 - prev_jump
+                else:
+                    PC = PC - int(address) - 1
+
                 # Rollback data structures
                 for entry in snapshot:
                     if entry[0] == rs_id:
