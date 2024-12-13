@@ -10,7 +10,7 @@ from reorderbuffer import ReorderBuffer
 from branchpredictor import BranchPredictor
 
 # Change the file name to match your file 
-input_file = 'TestCases/1.json'
+input_file = 'TestCases/input.json'
 
 # Create Memory and Register arrays
 # Some are just placeholders and get real values form json
@@ -978,5 +978,9 @@ if __name__ == "__main__":
         # Cycle to fix mispredict
         if mispredict:
             i = i + 1
+
+        # timeTable.resize(15)
+        # print(i)
+        # print(timeTable)
     
     output()
