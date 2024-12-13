@@ -201,9 +201,13 @@ def issue():
 
     mispredict = False
 
+    if i == 31:
+        pass
+
     # Load instruction from memory and place onto instruction buffer for issuing
-    if PC < len(instruction_memory):
+    if (PC < len(instruction_memory)) and (len(Instruction_Buffer) < 1):
         Instruction_Buffer.append(instruction_memory[PC])
+        prev_jump = 0 # Use to fix predicted branch predictions - nested
         PC = PC + 1 # Increment program counter
 
     # If no instructions left - nothing to issue - exit
@@ -635,7 +639,7 @@ def execute():
             taken = bp.searchHistory(rs_id)
             # We took the branch when we shouldn't have - rollback
             if taken:
-                PC = PC - int(address) + 1 - prev_jump
+                PC = PC - int(address) - 1 - prev_jump
                 # Rollback data structures
                 for entry in snapshot:
                     if entry[0] == rs_id:
@@ -712,12 +716,6 @@ def execute():
     # print(nop_value)
     # for rs in nop_rs:
     #     print(rs)
-
-    if i == 10:
-        pass
-
-    if ld_sd_value[1]:
-        pass
 
     return [int_value, fp_adder_value, fp_mult_value, nop_value], ld_sd_value
 
@@ -1031,24 +1029,6 @@ if __name__ == "__main__":
 
     # Main loop, every iteration is a cycle
     while stuff_to_be_done:
-
-        if (i == 35):
-            pass
-        
-        # if (i == 20):
-        #     pass
-        
-        # if (i == 30):
-        #     pass
-        
-        # if (i == 40):
-        #     pass
-        
-        # if (i == 50):
-        #     pass
-
-
-
         issue()
         values_p, mem = execute()
         mem_value_p = memory(mem)
@@ -1062,9 +1042,5 @@ if __name__ == "__main__":
         # Cycle to fix mispredict
         if mispredict:
             i = i + 1
-
-        # print(f'Cycle {i} -------------------------------------------------')
-        # output()
-        # print("\n")
 
     output()
